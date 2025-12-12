@@ -1,0 +1,21 @@
+[project]
+name = "invoice-scraper"
+version = "0.1.0"
+description = "Automated invoice download system using Playwright"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "playwright>=1.40.0",
+    "pytest-playwright>=0.4.0",
+    "pytest-asyncio>=0.24.0",
+    "google-cloud-secret-manager>=2.0.0",
+    "google-auth>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "pylint>=4.0.2",
+    "pytest>=9.0.2",
+    "pyotp>=2.9.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

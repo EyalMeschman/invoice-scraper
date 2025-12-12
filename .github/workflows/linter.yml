@@ -1,0 +1,25 @@
+name: linter
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  linter:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Run Linter
+        run: |
+          uv sync
+          uv run python -m pylint src/

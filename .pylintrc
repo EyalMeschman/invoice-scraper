@@ -1,0 +1,18 @@
+[MAIN]
+init-hook='import sys; from pathlib import Path; sys.path.append(str(Path.cwd()))'
+ignore-paths=.*/utils/appsniffer/github/generated/github_gql_client/.*
+
+[FORMAT]
+max-line-length=140
+disable=missing-function-docstring, missing-module-docstring, missing-class-docstring, logging-fstring-interpolation, broad-exception-raised, too-many-arguments, too-few-public-methods, too-many-locals, R0917, redefined-outer-name
+
+[SIMILARITIES]
+min-similarity-lines=4
+ignore-comments=yes
+ignore-docstrings=yes
+ignore-imports=yes
+
+[DESIGN]
+max-attributes=10
+
+generated-members=publisher.*, subscriber.*, client2cerebro_pb2.*, cerebro2client_pb2.*, client2spion_pb2.*, activity_logs_pb2.*, noah_pb2.*, cerberus_mgmt_pb2.*, apps_pb2.*, campaign_activity_pb2.*, run_trigger_pb2.*, bolt_pb2.*, taralyzer_pb2.*, forrest2cerebro_pb2.*, run_server_items_pb2.*, logshipper_pb2.*, run_item_response_pb2.*, run_item_pb2.*, trigger2forrest_pb2.*, triggercodes_pb2.*, additionalapigate_pb2.*, items_pb2.*, thekeymaker_pb2.*, healthcheckrpc_pb2.*, cerberus_service_pb2.*, spionmgmt_pb2.*, timestamp_pb2.*, inventory_pb2.*, signins_pb2.*, wrappers_pb2.*, generalinventory_pb2.*, app2appinventory_pb2.*, spion2appsniffer_pb2, dispatch_pb2.*, tenant_idp_pb2.*, tenant_boarding_pb2.*, sphere_pb2.*, inventoryrpc_pb2.*, throttle_pb2.*
