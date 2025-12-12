@@ -1,0 +1,16 @@
+__pycache__
+.venv
+.env
+nul
+
+playwright/.auth/
+
+# Downloaded invoices
+downloads/
+
+*invoice-scraper*.json
+.keys
+
+vault/
+
+tasks/
