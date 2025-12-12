@@ -77,8 +77,10 @@ async def page(browser: Browser, logger: logging.Logger, request: FixtureRequest
     if session_storage_data:
         await page.goto(session_storage_data["origin"])
         for item in session_storage_data["items"]:
+            # Use parameterized evaluation to prevent JavaScript injection
             await page.evaluate(
-                f"sessionStorage.setItem('{item['name']}', {json.dumps(item['value'])})"
+                "(data) => sessionStorage.setItem(data.name, data.value)",
+                {"name": item["name"], "value": item["value"]},
             )
         logger.info(
             f"Injected {len(session_storage_data['items'])} sessionStorage items"

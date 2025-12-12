@@ -37,5 +37,4 @@ class GoogleSecretsClient:
         # Decode the secret payload
         secret_value = response.payload.data.decode("UTF-8")
 
-        self._logger.info(f"Successfully retrieved secret: {secret_name}")
         return secret_value
