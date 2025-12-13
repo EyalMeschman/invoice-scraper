@@ -93,7 +93,11 @@ async def test_meitav_manual_login(
     await page.locator("#pasportNumber").fill(user_id)
     await page.locator("#password").fill(password)
     await page.pause()
-    await page.get_by_role("button", name="כניסה").click()
+    try:
+        await page.get_by_role("button", name="כניסה").click()
+    # pylint: disable=broad-exception-caught
+    except Exception:
+        pass
     await page.wait_for_url(url)
 
     await Utils.record_state(

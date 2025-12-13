@@ -72,7 +72,11 @@ async def test_partner_manual_login(
     await page.wait_for_timeout(500)
     await page.get_by_role("button", name="המשך").click()
     await page.pause()
-    await page.get_by_role("button", name="המשך").click()
+    try:
+        await page.get_by_role("button", name="המשך").click()
+    # pylint: disable=broad-exception-caught
+    except Exception:
+        pass
     await page.wait_for_url(url)
 
     await Utils.record_state(page=page, platform=PLATFORM, logger=logger)
@@ -85,7 +89,9 @@ async def test_partner(
 ) -> None:
     url = "https://www.partner.co.il/n/mypartner/invoice"
     await page.goto(url)
-    await Utils.wait_for_authenticated_page(page=page, url=url, platform=PLATFORM)
+    await Utils.wait_for_authenticated_selector(
+        page=page, selector="text=אפשר גם ח.פ.", should_exist=False, platform=PLATFORM
+    )
     await page.get_by_role("button", name="לא, תודה").click()
 
     # Create downloads directory
