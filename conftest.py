@@ -31,6 +31,7 @@ def fixture_google_secrets_client(logger: logging.Logger) -> GoogleSecretsClient
 async def browser():
     async with async_playwright() as p:
         browser = await p.chromium.launch(
+            channel="chrome",
             headless=False,
             args=[
                 "--disable-blink-features=AutomationControlled",
@@ -102,8 +103,42 @@ async def page(browser: Browser, logger: logging.Logger, request: FixtureRequest
     await context.close()
 
 
+@pytest.fixture
+async def cdp_page(logger: logging.Logger):
+    """
+    Connect to a manually opened Chrome instance via CDP.
+
+    Before running the test, start Chrome with:
+    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --remote-debugging-port=9222 --user-data-dir="C:\\Temp\\chrome_dev_session"
+    """
+    async with async_playwright() as p:
+        logger.info("Connecting to Chrome via CDP on port 9222...")
+        try:
+            browser = await p.chromium.connect_over_cdp("http://localhost:9222")
+            logger.info("Successfully connected to Chrome!")
+        except Exception as e:
+            raise RuntimeError(f"Could not connect to Chrome.\n" f"Error: {e}") from e
+
+        if not browser.contexts:
+            raise RuntimeError(
+                "No browser contexts found. Make sure Chrome has at least one window open."
+            )
+
+        context = browser.contexts[0]
+
+        page = context.pages[0] if context.pages else await context.new_page()
+
+        yield page
+
+        logger.info("Disconnecting from Chrome (browser will stay open)")
+        await browser.close()
+
+
 def pytest_configure(config: pytest.Config):
     config.addinivalue_line("markers", "manual: mark test as manual login")
+    config.addinivalue_line(
+        "markers", "cdp: mark test to use CDP connection to manual Chrome"
+    )
     config.addinivalue_line(
         "markers",
         "using_state(platform): mark test to use state for the given platform",

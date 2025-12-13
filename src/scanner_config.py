@@ -10,6 +10,7 @@ class Platform(StrEnum):
     ARNONA = "arnona"
     GOOGLE_WORKSPACE = "google_workspace"
     CHATGPT = "chatgpt"
+    CLAUDECODE = "claudecode"
 
 
 # Periods are inclusive: (4, 6) downloads PERIOD_4, PERIOD_5, PERIOD_6
@@ -25,11 +26,13 @@ PERIODS_CONFIG = {
     # Current month is downloadable only at the 14th of the current month (e.g., Oct at Oct 14th)
     Platform.PARTNER: (4, 11),
     # Current month is downloadable only at the 2nd of the next month (e.g., Oct at Nov 2nd)
-    Platform.GOOGLE_WORKSPACE: (7, 11),
+    Platform.GOOGLE_WORKSPACE: (8, 11),
     # Current month is downloadable only at the 18th of the current month (e.g., Oct at Oct 18th)
     # Token expires every 90 days (To be sure today is 13th of Dec, check if 14th of Mar we don't have access)
     # Note to myself: Next invoice will be at Feb 18th, 2026 for Feb only, delete after this date
-    Platform.CHATGPT: (7, 11),
+    Platform.CHATGPT: (8, 11),
+    # Current month is downloadable only at the 12th of the current month (e.g., Oct at Oct 12th)
+    Platform.CLAUDECODE: (8, 12),
 }
 
 

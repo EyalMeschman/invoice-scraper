@@ -24,7 +24,7 @@ class InvoicePeriod(StrEnum):
     PERIOD_12 = "Dec"  # December
 
 
-PLATFORM = Platform.CHATGPT
+PLATFORM = Platform.CLAUDECODE
 PERIODS_TO_DOWNLOAD = [
     InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)
 ]
@@ -33,14 +33,16 @@ PERIODS_TO_DOWNLOAD = [
 async def download_invoice_by_period(
     page: Page, period: InvoicePeriod, download_dir: Path, logger: logging.Logger
 ) -> Path:
-    invoice_row = (
-        page.get_by_test_id("billing-portal-invoice-row")
+    invoice_list = page.get_by_test_id("invoice-list")
+
+    row = (
+        invoice_list.locator("tbody tr")
         .filter(has_text=period)
         .filter(has_text=str(YEAR))
     )
 
     async with page.context.expect_page() as new_page_info:
-        await invoice_row.click()
+        await row.get_by_role("link", name="View").click()
 
     new_page = await new_page_info.value
     await new_page.wait_for_url("https://invoice.stripe.com/**")
@@ -61,47 +63,43 @@ async def download_invoice_by_period(
 
 
 @pytest.mark.manual
-async def test_chatgpt_manual_login(
-    page: Page,
+@pytest.mark.cdp
+async def test_claudecode_manual_login(
+    cdp_page: Page,
     logger: logging.Logger,
 ) -> None:
-    username = Utils.get_mandatory_env("CHATGPT_USERNAME")
-    password = Utils.get_mandatory_env("CHATGPT_PASSWORD")
+    # pylint: disable=line-too-long
+    """
+    Manual login for Claude Code via CDP.
 
-    url = "https://chatgpt.com"
-    await page.goto(url)
-    await page.get_by_role("button", name="Log in").click()
-    await page.get_by_role("button", name="Continue with Google").click()
-    await page.wait_for_url("https://accounts.google.com/**")
-    await page.locator("#identifierId").fill(username)
-    await page.keyboard.press("Enter")
-    await page.locator('input[name="Passwd"]').fill(password)
-    await page.keyboard.press("Enter")
-    await page.pause()
-    await page.wait_for_url(url)
+    Before running this test, start Chrome with:
+    "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe" --remote-debugging-port=9222 --user-data-dir="C:\\Temp\\chrome_dev_session"
+
+    Then:
+    1. Navigate to https://claude.ai
+    2. Complete the login
+    3. Run this test - it will connect and save the authentication state
+    """
+    username = Utils.get_mandatory_env("CLAUDECODE_USERNAME")
+    url = "https://claude.ai/new"
+
+    await cdp_page.goto(url)
+    await cdp_page.locator("#email").fill(username)
+    await cdp_page.pause()
+    await cdp_page.wait_for_url(url)
 
     await Utils.record_state(
-        page=page, platform=PLATFORM, logger=logger, include_session_storage=True
+        page=cdp_page, platform=PLATFORM, logger=logger, include_session_storage=True
     )
 
 
 @pytest.mark.using_state(PLATFORM)
-async def test_chatgpt(
+async def test_claudecode(
     page: Page,
     logger: logging.Logger,
 ) -> None:
-    url = "https://chatgpt.com"
+    url = "https://claude.ai/settings/billing"
     await page.goto(url)
-    await page.get_by_test_id("accounts-profile-button").last.click()
-    await page.get_by_role("menuitem", name="Settings").click()
-    await page.get_by_test_id("account-tab").click()
-    payment_section = page.locator('div:has-text("Payment")')
-    await payment_section.get_by_role("button", name="Manage").last.click()
-    await page.wait_for_url("https://pay.openai.com/**")
-
-    # If downloading more than 3 periods, press "view more"
-    if len(PERIODS_TO_DOWNLOAD) > 3:
-        await page.get_by_test_id("view-more-button").click()
 
     download_dir = Path(f"downloads/{YEAR}/{PLATFORM}")
     download_dir.mkdir(parents=True, exist_ok=True)
