@@ -1,55 +1,17 @@
 import asyncio
 import logging
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
-import pytest
 
+import pytest
 from playwright.async_api import Page
 
 from google_secrets_client import GoogleSecretsClient
+from src.scanner_config import YEAR, get_periods_to_download
 from src.utils import Utils
 
-YEAR = 2025
-PLATFORM = "meitav"
 
-
-async def try_direct_download(
-    new_page: Page,
-    download_dir: Path,
-    period: "InvoicePeriod",
-    timeout: int = 5000,
-) -> bytes:
-    """Attempt to download via direct download event."""
-    async with new_page.expect_download(timeout=timeout) as download_info:
-        pass  # Download triggers automatically from page load
-    download = await download_info.value
-
-    temp_path = download_dir / f"temp_{period.value}.pdf"
-    await download.save_as(temp_path)
-    pdf_content = temp_path.read_bytes()
-    temp_path.unlink()
-
-    return pdf_content
-
-
-async def try_blob_download(page: Page, new_page: Page, timeout: int = 10000) -> bytes:
-    """Attempt to download via blob URL."""
-    # Wait for the page to load the blob URL
-    start_wait = asyncio.get_event_loop().time()
-    while not new_page.url.startswith("blob:"):
-        if (asyncio.get_event_loop().time() - start_wait) * 1000 > timeout:
-            raise TimeoutError("Timeout waiting for blob URL to load")
-        await new_page.reload()
-        await asyncio.sleep(1)
-
-    # Download from blob URL using the original page context
-    blob_url = new_page.url
-    return await Utils.download_pdf_from_blob_url(page, blob_url)
-
-
-class InvoicePeriod(Enum):
-    """Water invoice periods - format: {period}-{year}"""
-
+class InvoicePeriod(StrEnum):
     PERIOD_1 = f"1-{YEAR}"  # Jan-Feb
     PERIOD_2 = f"2-{YEAR}"  # Mar-Apr
     PERIOD_3 = f"3-{YEAR}"  # May-Jun
@@ -58,10 +20,9 @@ class InvoicePeriod(Enum):
     PERIOD_6 = f"6-{YEAR}"  # Nov-Dec
 
 
+PLATFORM = "meitav"
 PERIODS_TO_DOWNLOAD = [
-    InvoicePeriod.PERIOD_4,
-    InvoicePeriod.PERIOD_5,
-    InvoicePeriod.PERIOD_6,
+    InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)
 ]
 
 
@@ -75,7 +36,7 @@ async def download_invoice_by_period(
     Download the water invoice for the given period.
     Races both direct download and blob URL download methods concurrently.
     """
-    row = page.locator(f"tr:has-text('{period.value}')").first
+    row = page.locator(f"tr:has-text('{period}')").first
     link = row.locator("a").filter(has_text="חשבונית").first
 
     async with page.context.expect_page() as new_page_info:
@@ -83,10 +44,8 @@ async def download_invoice_by_period(
     new_page = await new_page_info.value
 
     # Race both download methods concurrently
-    direct_task = asyncio.create_task(
-        try_direct_download(new_page, download_dir, period)
-    )
-    blob_task = asyncio.create_task(try_blob_download(page, new_page))
+    direct_task = asyncio.create_task(Utils.direct_download(new_page, download_dir))
+    blob_task = asyncio.create_task(Utils.blob_download_with_timeout(page, new_page))
 
     # Wait for the first one to succeed
     done, pending = await asyncio.wait(
@@ -108,7 +67,7 @@ async def download_invoice_by_period(
         raise ValueError(f"Failed to download invoice for period {period.name}")
 
     # Save the PDF with period as filename
-    save_path = download_dir / f"water_{period.value}.pdf"
+    save_path = download_dir / f"water_{period}.pdf"
     save_path.write_bytes(pdf_content)
 
     logger.info(f"Downloaded {period.name} to {save_path}")
@@ -153,7 +112,7 @@ async def test_meitav(
     await page.locator("#allInfo").click()
 
     # Create downloads directory
-    download_dir = Path(f"downloads/{YEAR}/meitav")
+    download_dir = Path(f"downloads/{YEAR}/{PLATFORM}")
     download_dir.mkdir(parents=True, exist_ok=True)
 
     for period in PERIODS_TO_DOWNLOAD:

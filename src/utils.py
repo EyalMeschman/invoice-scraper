@@ -1,11 +1,13 @@
+import asyncio
 import base64
 import json
 import logging
 import os
+from pathlib import Path
 
 import pyotp
-from playwright.sync_api import BrowserContext, Locator, Page
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.async_api import BrowserContext, Locator, Page
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from google_secrets_client import GoogleSecretsClient
 
@@ -321,3 +323,58 @@ class Utils:
         )
 
         return base64.b64decode(pdf_base64)
+
+    @staticmethod
+    async def direct_download(
+        new_page: Page,
+        download_dir: Path,
+        timeout: int = 5000,
+    ) -> bytes:
+        """
+        Attempt to download via Playwright's direct download event.
+
+        Args:
+            new_page: The page that triggers the download
+            download_dir: Directory to temporarily store the download
+            timeout: Timeout in milliseconds for the download event
+
+        Returns:
+            The PDF content as bytes
+        """
+        async with new_page.expect_download(timeout=timeout) as download_info:
+            pass  # Download triggers automatically from page load
+        download = await download_info.value
+
+        temp_path = download_dir / "temp_invoice.pdf"
+        await download.save_as(temp_path)
+        pdf_content = temp_path.read_bytes()
+        temp_path.unlink()
+
+        return pdf_content
+
+    @staticmethod
+    async def blob_download_with_timeout(
+        page: Page, new_page: Page, timeout: int = 10000
+    ) -> bytes:
+        """
+        Attempt to download via blob URL.
+
+        Args:
+            page: The original page context (used for blob URL fetching)
+            new_page: The new page that loads the blob URL
+            timeout: Timeout in milliseconds for waiting for blob URL
+
+        Returns:
+            The PDF content as bytes
+        """
+        # Wait for the page to load the blob URL
+        start_wait = asyncio.get_event_loop().time()
+        while not new_page.url.startswith("blob:"):
+            if (asyncio.get_event_loop().time() - start_wait) * 1000 > timeout:
+                raise TimeoutError("Timeout waiting for blob URL to load")
+            await new_page.reload()
+            await asyncio.sleep(1)
+
+        # Download from blob URL using the original page context
+        blob_url = new_page.url
+        return await Utils.download_pdf_from_blob_url(page, blob_url)
