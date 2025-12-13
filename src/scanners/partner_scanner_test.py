@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from playwright.async_api import Page
 
-from src.scanner_config import YEAR, get_periods_to_download
+from src.scanner_config import Platform, YEAR, get_periods_to_download
 from src.utils import Utils
 
 
@@ -24,7 +24,7 @@ class InvoicePeriod(StrEnum):
     PERIOD_12 = f"דצמבר {YEAR}"  # December
 
 
-PLATFORM = "partner"
+PLATFORM = Platform.PARTNER
 PERIODS_TO_DOWNLOAD = [
     InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)
 ]
@@ -36,14 +36,11 @@ async def download_invoice_by_period(
     link = page.locator('[role="group"]').filter(has_text=period).first
     await link.click()
 
-    # Click on the link and handle the new page
     async with page.context.expect_page() as new_page_info:
         await page.get_by_role("button", name="לחשבונית חתומה דיגיטלית").click()
     new_page: Page = await new_page_info.value
     await new_page.wait_for_load_state()
 
-    # # Get the PDF URL and download it using the page's context
-    # blob_url = new_page.url
     pdf_content = await Utils.blob_download_with_timeout(page, new_page)
 
     save_path = download_dir / f"{PLATFORM}_{period}.pdf".replace(" ", "_")
@@ -94,7 +91,6 @@ async def test_partner(
     )
     await page.get_by_role("button", name="לא, תודה").click()
 
-    # Create downloads directory
     download_dir = Path(f"downloads/{YEAR}/{PLATFORM}")
     download_dir.mkdir(parents=True, exist_ok=True)
 

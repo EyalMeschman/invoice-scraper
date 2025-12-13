@@ -5,7 +5,7 @@ from pathlib import Path
 from playwright.async_api import Page
 
 from google_secrets_client import GoogleSecretsClient
-from src.scanner_config import YEAR, get_periods_to_download
+from src.scanner_config import Platform, YEAR, get_periods_to_download
 from src.utils import Utils
 
 
@@ -18,7 +18,7 @@ class InvoicePeriod(StrEnum):
     PERIOD_6 = "ארנונה תקופתי 6"  # Nov-Dec
 
 
-PLATFORM = "arnona"
+PLATFORM = Platform.ARNONA
 PERIODS_TO_DOWNLOAD = [
     InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)
 ]
@@ -27,20 +27,14 @@ PERIODS_TO_DOWNLOAD = [
 async def download_invoice_by_period(
     page: Page, period: InvoicePeriod, download_dir: Path, logger: logging.Logger
 ) -> Path:
-    """
-    Download the first (most recent) invoice matching the given period.
-    """
-    # Find the first row containing this period text and click the link in the first cell
     row = page.locator(f"table#datatable tbody tr:has-text('{period}')").first
     link_cell = row.locator("td").first
 
-    # Click on the link and handle the new page
     async with page.context.expect_page() as new_page_info:
         await link_cell.click()
     new_page: Page = await new_page_info.value
     await new_page.wait_for_load_state()
 
-    # Get the PDF URL and download it using the page's context
     blob_url = new_page.url
     pdf_content = await Utils.download_pdf_from_blob_url(new_page, blob_url)
 
@@ -76,7 +70,6 @@ async def test_arnona(
     await page.goto(url)
     await page.wait_for_selector("table#datatable")
 
-    # Create downloads directory
     download_dir = Path(f"downloads/{YEAR}/{PLATFORM}")
     download_dir.mkdir(parents=True, exist_ok=True)
 

@@ -30,7 +30,13 @@ def fixture_google_secrets_client(logger: logging.Logger) -> GoogleSecretsClient
 @pytest.fixture
 async def browser():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)
+        browser = await p.chromium.launch(
+            headless=False,
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--disable-features=IsolateOrigins,site-per-process",
+            ],
+        )
         yield browser
         await browser.close()
 
@@ -67,7 +73,11 @@ async def page(browser: Browser, logger: logging.Logger, request: FixtureRequest
                     )
                     break
 
-    context = await browser.new_context(storage_state=storage_state)
+    context = await browser.new_context(
+        storage_state=storage_state,
+        bypass_csp=True,
+        ignore_https_errors=True,
+    )
     Utils.cover_footprints(context)
 
     page = await context.new_page()

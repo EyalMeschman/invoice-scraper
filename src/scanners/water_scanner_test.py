@@ -7,7 +7,7 @@ import pytest
 from playwright.async_api import Page
 
 from google_secrets_client import GoogleSecretsClient
-from src.scanner_config import YEAR, get_periods_to_download
+from src.scanner_config import Platform, YEAR, get_periods_to_download
 from src.utils import Utils
 
 
@@ -20,7 +20,7 @@ class InvoicePeriod(StrEnum):
     PERIOD_6 = f"6-{YEAR}"  # Nov-Dec
 
 
-PLATFORM = "meitav"
+PLATFORM = Platform.MEITAV
 PERIODS_TO_DOWNLOAD = [
     InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)
 ]
@@ -32,10 +32,6 @@ async def download_invoice_by_period(
     download_dir: Path,
     logger: logging.Logger,
 ) -> Path:
-    """
-    Download the water invoice for the given period.
-    Races both direct download and blob URL download methods concurrently.
-    """
     row = page.locator(f"tr:has-text('{period}')").first
     link = row.locator("a").filter(has_text="חשבונית").first
 
@@ -66,7 +62,6 @@ async def download_invoice_by_period(
     if pdf_content is None:
         raise ValueError(f"Failed to download invoice for period {period.name}")
 
-    # Save the PDF with period as filename
     save_path = download_dir / f"water_{period}.pdf"
     save_path.write_bytes(pdf_content)
 
@@ -115,7 +110,6 @@ async def test_meitav(
     await Utils.wait_for_authenticated_page(page=page, url=url, platform=PLATFORM)
     await page.locator("#allInfo").click()
 
-    # Create downloads directory
     download_dir = Path(f"downloads/{YEAR}/{PLATFORM}")
     download_dir.mkdir(parents=True, exist_ok=True)
 
