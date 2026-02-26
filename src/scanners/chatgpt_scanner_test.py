@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from playwright.async_api import Page
 
-from src.scanner_config import Platform, YEAR, get_periods_to_download
+from src.scanner_config import YEAR, Platform, get_periods_to_download
 from src.utils import Utils
 
 
@@ -25,19 +25,11 @@ class InvoicePeriod(StrEnum):
 
 
 PLATFORM = Platform.CHATGPT
-PERIODS_TO_DOWNLOAD = [
-    InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)
-]
+PERIODS_TO_DOWNLOAD = [InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)]
 
 
-async def download_invoice_by_period(
-    page: Page, period: InvoicePeriod, download_dir: Path, logger: logging.Logger
-) -> Path:
-    invoice_row = (
-        page.get_by_test_id("billing-portal-invoice-row")
-        .filter(has_text=period)
-        .filter(has_text=str(YEAR))
-    )
+async def download_invoice_by_period(page: Page, period: InvoicePeriod, download_dir: Path, logger: logging.Logger) -> Path:
+    invoice_row = page.get_by_test_id("billing-portal-invoice-row").filter(has_text=period).filter(has_text=str(YEAR))
 
     async with page.context.expect_page() as new_page_info:
         await invoice_row.click()
@@ -80,9 +72,7 @@ async def test_chatgpt_manual_login(
     await page.pause()
     await page.wait_for_url(url)
 
-    await Utils.record_state(
-        page=page, platform=PLATFORM, logger=logger, include_session_storage=True
-    )
+    await Utils.record_state(page=page, platform=PLATFORM, logger=logger, include_session_storage=True)
 
 
 @pytest.mark.using_state(PLATFORM)
@@ -107,8 +97,6 @@ async def test_chatgpt(
     download_dir.mkdir(parents=True, exist_ok=True)
 
     for period in PERIODS_TO_DOWNLOAD:
-        await download_invoice_by_period(
-            page=page, period=period, download_dir=download_dir, logger=logger
-        )
+        await download_invoice_by_period(page=page, period=period, download_dir=download_dir, logger=logger)
 
     logger.info(f"All downloads completed in {download_dir}")

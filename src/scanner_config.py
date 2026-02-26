@@ -38,10 +38,7 @@ PERIODS_CONFIG = {
 
 def get_periods_to_download(platform: str) -> list[str]:
     if platform not in PERIODS_CONFIG:
-        raise KeyError(
-            f"Platform '{platform}' not found in PERIODS_CONFIG. "
-            f"Available platforms: {list(PERIODS_CONFIG.keys())}"
-        )
+        raise KeyError(f"Platform '{platform}' not found in PERIODS_CONFIG. Available platforms: {list(PERIODS_CONFIG.keys())}")
 
     start_period, end_period = PERIODS_CONFIG[platform]
     return [f"PERIOD_{i}" for i in range(start_period, end_period + 1)]

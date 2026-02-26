@@ -38,7 +38,7 @@ uv run pytest -m manual -v
 
 ### Linting
 ```bash
-uv run pylint src/
+uv run ruff check src/
 ```
 
 ## Architecture

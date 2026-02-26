@@ -81,9 +81,7 @@ class Utils:
         logger.info(f"Successfully saved state for {platform}, path: {full_path}")
 
     @staticmethod
-    async def _append_session_storage_to_state(
-        page: Page, state_file_path: str, logger: logging.Logger
-    ):
+    async def _append_session_storage_to_state(page: Page, state_file_path: str, logger: logging.Logger):
         """
         Private helper method to capture sessionStorage and append it to an existing state file.
         """
@@ -113,9 +111,7 @@ class Utils:
 
         for origin_data in state.get("origins", []):
             if origin_data["origin"] == origin:
-                origin_data["sessionStorage"] = [
-                    {"name": k, "value": v} for k, v in session_storage.items()
-                ]
+                origin_data["sessionStorage"] = [{"name": k, "value": v} for k, v in session_storage.items()]
                 origin_found = True
                 break
 
@@ -123,9 +119,7 @@ class Utils:
             state.setdefault("origins", []).append(
                 {
                     "origin": origin,
-                    "sessionStorage": [
-                        {"name": k, "value": v} for k, v in session_storage.items()
-                    ],
+                    "sessionStorage": [{"name": k, "value": v} for k, v in session_storage.items()],
                 }
             )
 
@@ -141,18 +135,14 @@ class Utils:
         return totp.now()
 
     @staticmethod
-    async def wait_for_authenticated_page(
-        page: Page, url: str, platform: str, timeout=5000
-    ):
+    async def wait_for_authenticated_page(page: Page, url: str, platform: str, timeout=5000):
         try:
             await page.wait_for_url(url, timeout=timeout)
         except PlaywrightTimeoutError as exc:
             raise CookieExpiredError(platform) from exc
 
     @staticmethod
-    async def wait_for_authenticated_selector(
-        page: Page, selector: str, should_exist: bool, platform: str, timeout=5000
-    ):
+    async def wait_for_authenticated_selector(page: Page, selector: str, should_exist: bool, platform: str, timeout=5000):
         try:
             await page.wait_for_selector(selector, timeout=timeout)
             if not should_exist:
@@ -163,9 +153,7 @@ class Utils:
             raise CookieExpiredError(platform) from exc
 
     @staticmethod
-    async def wait_for_selector(
-        page: Page, selector: str, timeout=3000
-    ) -> Locator | None:
+    async def wait_for_selector(page: Page, selector: str, timeout=3000) -> Locator | None:
         try:
             await page.wait_for_selector(selector, timeout=timeout)
             locator = page.locator(selector)
@@ -226,9 +214,7 @@ class Utils:
         return pdf_content
 
     @staticmethod
-    async def blob_download_with_timeout(
-        page: Page, new_page: Page, timeout: int = 10000
-    ) -> bytes:
+    async def blob_download_with_timeout(page: Page, new_page: Page, timeout: int = 10000) -> bytes:
         # Wait for the page to load the blob URL
         start_wait = asyncio.get_event_loop().time()
         while not new_page.url.startswith("blob:"):

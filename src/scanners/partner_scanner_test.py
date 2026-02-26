@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from playwright.async_api import Page
 
-from src.scanner_config import Platform, YEAR, get_periods_to_download
+from src.scanner_config import YEAR, Platform, get_periods_to_download
 from src.utils import Utils
 
 
@@ -25,14 +25,10 @@ class InvoicePeriod(StrEnum):
 
 
 PLATFORM = Platform.PARTNER
-PERIODS_TO_DOWNLOAD = [
-    InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)
-]
+PERIODS_TO_DOWNLOAD = [InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)]
 
 
-async def download_invoice_by_period(
-    page: Page, period: InvoicePeriod, download_dir: Path, logger: logging.Logger
-) -> Path:
+async def download_invoice_by_period(page: Page, period: InvoicePeriod, download_dir: Path, logger: logging.Logger) -> Path:
     link = page.locator('[role="group"]').filter(has_text=period).first
     await link.click()
 
@@ -86,17 +82,13 @@ async def test_partner(
 ) -> None:
     url = "https://www.partner.co.il/n/mypartner/invoice"
     await page.goto(url)
-    await Utils.wait_for_authenticated_selector(
-        page=page, selector="text=אפשר גם ח.פ.", should_exist=False, platform=PLATFORM
-    )
+    await Utils.wait_for_authenticated_selector(page=page, selector="text=אפשר גם ח.פ.", should_exist=False, platform=PLATFORM)
     await page.get_by_role("button", name="לא, תודה").click()
 
     download_dir = Path(f"downloads/{YEAR}/{PLATFORM}")
     download_dir.mkdir(parents=True, exist_ok=True)
 
     for period in PERIODS_TO_DOWNLOAD:
-        await download_invoice_by_period(
-            page=page, period=period, download_dir=download_dir, logger=logger
-        )
+        await download_invoice_by_period(page=page, period=period, download_dir=download_dir, logger=logger)
 
     logger.info(f"All downloads completed in {download_dir}")

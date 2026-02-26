@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from playwright.async_api import Page
 
-from src.scanner_config import Platform, YEAR, get_periods_to_download
+from src.scanner_config import YEAR, Platform, get_periods_to_download
 from src.utils import Utils
 
 
@@ -25,21 +25,13 @@ class InvoicePeriod(StrEnum):
 
 
 PLATFORM = Platform.CLAUDECODE
-PERIODS_TO_DOWNLOAD = [
-    InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)
-]
+PERIODS_TO_DOWNLOAD = [InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)]
 
 
-async def download_invoice_by_period(
-    page: Page, period: InvoicePeriod, download_dir: Path, logger: logging.Logger
-) -> Path:
+async def download_invoice_by_period(page: Page, period: InvoicePeriod, download_dir: Path, logger: logging.Logger) -> Path:
     invoice_list = page.get_by_test_id("invoice-list")
 
-    row = (
-        invoice_list.locator("tbody tr")
-        .filter(has_text=period)
-        .filter(has_text=str(YEAR))
-    )
+    row = invoice_list.locator("tbody tr").filter(has_text=period).filter(has_text=str(YEAR))
 
     async with page.context.expect_page() as new_page_info:
         await row.get_by_role("link", name="View").click()
@@ -68,12 +60,12 @@ async def test_claudecode_manual_login(
     cdp_page: Page,
     logger: logging.Logger,
 ) -> None:
-    # pylint: disable=line-too-long
     """
     Manual login for Claude Code via CDP.
 
     Before running this test, start Chrome with:
-    "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe" --remote-debugging-port=9222 --user-data-dir="C:\\Temp\\chrome_dev_session"
+    "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
+        --remote-debugging-port=9222 --user-data-dir="C:\\Temp\\chrome_dev_session"
 
     Then:
     1. Navigate to https://claude.ai
@@ -88,9 +80,7 @@ async def test_claudecode_manual_login(
     await cdp_page.pause()
     await cdp_page.wait_for_url(url)
 
-    await Utils.record_state(
-        page=cdp_page, platform=PLATFORM, logger=logger, include_session_storage=True
-    )
+    await Utils.record_state(page=cdp_page, platform=PLATFORM, logger=logger, include_session_storage=True)
 
 
 @pytest.mark.using_state(PLATFORM)
@@ -105,8 +95,6 @@ async def test_claudecode(
     download_dir.mkdir(parents=True, exist_ok=True)
 
     for period in PERIODS_TO_DOWNLOAD:
-        await download_invoice_by_period(
-            page=page, period=period, download_dir=download_dir, logger=logger
-        )
+        await download_invoice_by_period(page=page, period=period, download_dir=download_dir, logger=logger)
 
     logger.info(f"All downloads completed in {download_dir}")

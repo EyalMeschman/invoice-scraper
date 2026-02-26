@@ -3,9 +3,9 @@ import logging
 import os
 
 import pytest
-from pytest import FixtureRequest, Item
 from dotenv import load_dotenv
 from playwright.async_api import Browser, async_playwright
+from pytest import FixtureRequest, Item
 
 from google_secrets_client import GoogleSecretsClient
 from logger import Logger
@@ -69,9 +69,7 @@ async def page(browser: Browser, logger: logging.Logger, request: FixtureRequest
                         "origin": origin_data["origin"],
                         "items": origin_data["sessionStorage"],
                     }
-                    logger.info(
-                        f"Found sessionStorage for {origin_data['origin']} with {len(origin_data['sessionStorage'])} items"
-                    )
+                    logger.info(f"Found sessionStorage for {origin_data['origin']} with {len(origin_data['sessionStorage'])} items")
                     break
 
     context = await browser.new_context(
@@ -93,9 +91,7 @@ async def page(browser: Browser, logger: logging.Logger, request: FixtureRequest
                 "(data) => sessionStorage.setItem(data.name, data.value)",
                 {"name": item["name"], "value": item["value"]},
             )
-        logger.info(
-            f"Injected {len(session_storage_data['items'])} sessionStorage items"
-        )
+        logger.info(f"Injected {len(session_storage_data['items'])} sessionStorage items")
 
     yield page
 
@@ -117,12 +113,10 @@ async def cdp_page(logger: logging.Logger):
             browser = await p.chromium.connect_over_cdp("http://localhost:9222")
             logger.info("Successfully connected to Chrome!")
         except Exception as e:
-            raise RuntimeError(f"Could not connect to Chrome.\n" f"Error: {e}") from e
+            raise RuntimeError(f"Could not connect to Chrome.\nError: {e}") from e
 
         if not browser.contexts:
-            raise RuntimeError(
-                "No browser contexts found. Make sure Chrome has at least one window open."
-            )
+            raise RuntimeError("No browser contexts found. Make sure Chrome has at least one window open.")
 
         context = browser.contexts[0]
 
@@ -136,9 +130,7 @@ async def cdp_page(logger: logging.Logger):
 
 def pytest_configure(config: pytest.Config):
     config.addinivalue_line("markers", "manual: mark test as manual login")
-    config.addinivalue_line(
-        "markers", "cdp: mark test to use CDP connection to manual Chrome"
-    )
+    config.addinivalue_line("markers", "cdp: mark test to use CDP connection to manual Chrome")
     config.addinivalue_line(
         "markers",
         "using_state(platform): mark test to use state for the given platform",

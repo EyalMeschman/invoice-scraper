@@ -11,7 +11,7 @@ dependencies = [
     "google-cloud-secret-manager>=2.0.0",
     "google-auth>=2.0.0",
     "python-dotenv>=1.0.0",
-    "pylint>=4.0.2",
+    "ruff>=0.9.0",
     "pytest>=9.0.2",
     "pyotp>=2.9.0",
 ]
@@ -19,3 +19,22 @@ dependencies = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 140
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "PL", "G", "TRY"]
+ignore = [
+    "D100",     # missing-module-docstring
+    "D101",     # missing-class-docstring
+    "D103",     # missing-function-docstring
+    "G004",     # logging-fstring-interpolation
+    "TRY002",   # broad-exception-raised (raise-vanilla-class)
+    "TRY003",   # long exception messages (commonly triggered with TRY)
+    "TRY300",   # try-consider-else
+    "PLR0913",  # too-many-arguments
+    "PLR2004",  # magic-value-comparison
+    "PLR0914",  # too-many-locals
+    "PLR0917",  # too-many-positional-arguments
+]

@@ -7,7 +7,7 @@ import pytest
 from playwright.async_api import Page
 
 from google_secrets_client import GoogleSecretsClient
-from src.scanner_config import Platform, YEAR, get_periods_to_download
+from src.scanner_config import YEAR, Platform, get_periods_to_download
 from src.utils import Utils
 
 
@@ -21,9 +21,7 @@ class InvoicePeriod(StrEnum):
 
 
 PLATFORM = Platform.MEITAV
-PERIODS_TO_DOWNLOAD = [
-    InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)
-]
+PERIODS_TO_DOWNLOAD = [InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)]
 
 
 async def download_invoice_by_period(
@@ -44,9 +42,7 @@ async def download_invoice_by_period(
     blob_task = asyncio.create_task(Utils.blob_download_with_timeout(page, new_page))
 
     # Wait for the first one to succeed
-    done, pending = await asyncio.wait(
-        [direct_task, blob_task], return_when=asyncio.FIRST_COMPLETED
-    )
+    done, pending = await asyncio.wait([direct_task, blob_task], return_when=asyncio.FIRST_COMPLETED)
 
     # Cancel the other task
     for task in pending:
@@ -76,9 +72,7 @@ async def test_meitav_manual_login(
     logger: logging.Logger,
     google_secrets_client: GoogleSecretsClient,
 ):
-    password = Utils.get_secret_from_google_secrets_client(
-        google_secrets_client, "MEITAV_PASSWORD"
-    )
+    password = Utils.get_secret_from_google_secrets_client(google_secrets_client, "MEITAV_PASSWORD")
 
     user_id = Utils.get_mandatory_env("JESS_ID")
 
@@ -95,9 +89,7 @@ async def test_meitav_manual_login(
         pass
     await page.wait_for_url(url)
 
-    await Utils.record_state(
-        page=page, platform=PLATFORM, logger=logger, include_session_storage=True
-    )
+    await Utils.record_state(page=page, platform=PLATFORM, logger=logger, include_session_storage=True)
 
 
 @pytest.mark.using_state(PLATFORM)
@@ -114,8 +106,6 @@ async def test_meitav(
     download_dir.mkdir(parents=True, exist_ok=True)
 
     for period in PERIODS_TO_DOWNLOAD:
-        await download_invoice_by_period(
-            page=page, period=period, download_dir=download_dir, logger=logger
-        )
+        await download_invoice_by_period(page=page, period=period, download_dir=download_dir, logger=logger)
 
     logger.info(f"All downloads completed in {download_dir}")
