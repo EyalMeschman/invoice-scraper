@@ -22,4 +22,5 @@ jobs:
       - name: Run Linter
         run: |
           uv sync
-          uv run python -m pylint src/
+          uv run ruff format --check .
+          uv run ruff check .

@@ -2,9 +2,9 @@ import logging
 from enum import StrEnum
 from pathlib import Path
 
-from playwright.async_api import Page, Locator
+from playwright.async_api import Locator, Page
 
-from src.scanner_config import Platform, YEAR, get_periods_to_download
+from src.scanner_config import YEAR, Platform, get_periods_to_download
 from src.utils import Utils
 
 
@@ -24,14 +24,10 @@ class InvoicePeriod(StrEnum):
 
 
 PLATFORM = Platform.GOOGLE_WORKSPACE
-PERIODS_TO_DOWNLOAD = [
-    InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)
-]
+PERIODS_TO_DOWNLOAD = [InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)]
 
 
-async def download_invoice_by_period(
-    page: Page, period: InvoicePeriod, download_dir: Path, logger: logging.Logger
-) -> Path:
+async def download_invoice_by_period(page: Page, period: InvoicePeriod, download_dir: Path, logger: logging.Logger) -> Path:
     iframe_frame: Locator = page.locator('iframe[name^="embeddedBilling"]')
 
     content_frame = iframe_frame.content_frame
@@ -90,9 +86,7 @@ async def test_google_workspace(
         if not content_frame:
             raise ValueError("Could not find billing iframe")
 
-        await content_frame.get_by_role("listbox").filter(
-            has_text="Last 3 months"
-        ).click()
+        await content_frame.get_by_role("listbox").filter(has_text="Last 3 months").click()
         await content_frame.get_by_role("menuitem", name="This year").click()
         await content_frame.get_by_role("heading", name="Jan 1").wait_for()
 
@@ -100,8 +94,6 @@ async def test_google_workspace(
     download_dir.mkdir(parents=True, exist_ok=True)
 
     for period in PERIODS_TO_DOWNLOAD:
-        await download_invoice_by_period(
-            page=page, period=period, download_dir=download_dir, logger=logger
-        )
+        await download_invoice_by_period(page=page, period=period, download_dir=download_dir, logger=logger)
 
     logger.info(f"All downloads completed in {download_dir}")

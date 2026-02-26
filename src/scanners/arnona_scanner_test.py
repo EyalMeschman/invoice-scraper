@@ -5,7 +5,7 @@ from pathlib import Path
 from playwright.async_api import Page
 
 from google_secrets_client import GoogleSecretsClient
-from src.scanner_config import Platform, YEAR, get_periods_to_download
+from src.scanner_config import YEAR, Platform, get_periods_to_download
 from src.utils import Utils
 
 
@@ -19,14 +19,10 @@ class InvoicePeriod(StrEnum):
 
 
 PLATFORM = Platform.ARNONA
-PERIODS_TO_DOWNLOAD = [
-    InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)
-]
+PERIODS_TO_DOWNLOAD = [InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)]
 
 
-async def download_invoice_by_period(
-    page: Page, period: InvoicePeriod, download_dir: Path, logger: logging.Logger
-) -> Path:
+async def download_invoice_by_period(page: Page, period: InvoicePeriod, download_dir: Path, logger: logging.Logger) -> Path:
     row = page.locator(f"table#datatable tbody tr:has-text('{period}')").first
     link_cell = row.locator("td").first
 
@@ -52,9 +48,7 @@ async def test_arnona(
     logger: logging.Logger,
     google_secrets_client: GoogleSecretsClient,
 ) -> None:
-    password = Utils.get_secret_from_google_secrets_client(
-        google_secrets_client, "ARNONA_PASSWORD"
-    )
+    password = Utils.get_secret_from_google_secrets_client(google_secrets_client, "ARNONA_PASSWORD")
 
     user_id = Utils.get_mandatory_env("DEFAULT_ID")
 
