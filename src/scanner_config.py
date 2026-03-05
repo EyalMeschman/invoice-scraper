@@ -8,6 +8,7 @@ class Platform(StrEnum):
     PARTNER = "partner"
     MEITAV = "meitav"
     ARNONA = "arnona"
+    AMISRAGAS = "amisragas"
     GOOGLE_WORKSPACE = "google_workspace"
     CHATGPT = "chatgpt"
     CLAUDECODE = "claudecode"
@@ -33,6 +34,8 @@ PERIODS_CONFIG = {
     Platform.CHATGPT: (8, 11),
     # Current month is downloadable only at the 12th of the current month (e.g., Oct at Oct 12th)
     Platform.CLAUDECODE: (8, 12),
+    # Current month is downloadable only at the 18th of the next month (e.g., Oct at Nov 18th)
+    Platform.AMISRAGAS: (7, 10),
 }
 
 

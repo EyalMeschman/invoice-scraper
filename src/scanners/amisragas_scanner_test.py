@@ -2,22 +2,29 @@ import logging
 from enum import StrEnum
 from pathlib import Path
 
-from google_secrets_client import GoogleSecretsClient
+import pytest
+
 from playwright.async_api import Page
 from src.scanner_config import YEAR, Platform, get_periods_to_download
 from src.utils import Utils
 
 
 class InvoicePeriod(StrEnum):
-    PERIOD_1 = "ארנונה תקופתי 1"  # Jan-Feb (+ Annual)
-    PERIOD_2 = "ארנונה תקופתי 2"  # Mar-Apr
-    PERIOD_3 = "ארנונה תקופתי 3"  # May-Jun
-    PERIOD_4 = "ארנונה תקופתי 4"  # Jul-Aug
-    PERIOD_5 = "ארנונה תקופתי 5"  # Sep-Oct
-    PERIOD_6 = "ארנונה תקופתי 6"  # Nov-Dec
+    PERIOD_1 = "01"  # January
+    PERIOD_2 = "02"  # February
+    PERIOD_3 = "03"  # March
+    PERIOD_4 = "04"  # April
+    PERIOD_5 = "05"  # May
+    PERIOD_6 = "06"  # June
+    PERIOD_7 = "07"  # July
+    PERIOD_8 = "08"  # August
+    PERIOD_9 = "09"  # September
+    PERIOD_10 = "10"  # October
+    PERIOD_11 = "11"  # November
+    PERIOD_12 = "12"  # December
 
 
-PLATFORM = Platform.ARNONA
+PLATFORM = Platform.AMISRAGAS
 PERIODS_TO_DOWNLOAD = [InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)]
 
 
@@ -42,26 +49,35 @@ async def download_invoice_by_period(page: Page, period: InvoicePeriod, download
     return save_path
 
 
-async def test_arnona(
+@pytest.mark.manual
+async def test_amisragas_manual_login(
     page: Page,
     logger: logging.Logger,
-    google_secrets_client: GoogleSecretsClient,
-) -> None:
-    password = Utils.get_secret_from_google_secrets_client(google_secrets_client, "ARNONA_PASSWORD")
-
+):
+    phone_num = Utils.get_mandatory_env("PARTIAL_PHONE_NUMBER")
+    phone_initial = Utils.get_mandatory_env("PHONE_NUMBER_INITIAL")
     user_id = Utils.get_mandatory_env("DEFAULT_ID")
 
-    url = "https://city4u.co.il/PortalServicesSite/city4u/279000/waterDocuments"
+    url = "https://www.amisragas.co.il/recipts/"
     await page.goto(url)
-    await page.get_by_role("button", name="כניסה לחשבון").click()
-    await page.locator("#UserName").click()
-    await page.locator("#UserName").fill(user_id)
-    await page.locator("#Password").click()
-    await page.locator("#Password").fill(password)
-    await page.get_by_role("button", name="כניסה לחשבון").click()
-    await page.wait_for_selector("div#breadcrumbs")
+    await page.locator("#govId").fill(user_id)
+    await page.select_option("#phoneCode", value=phone_initial)
+    await page.locator("#phoneNumber").fill(phone_num)
+    await page.keyboard.press("Enter")
+    await page.pause()
+    await page.wait_for_url(url)
+
+    await Utils.record_state(page=page, platform=PLATFORM, logger=logger, include_session_storage=True)
+
+
+@pytest.mark.using_state(PLATFORM)
+async def test_amisragas(
+    page: Page,
+    logger: logging.Logger,
+):
+    url = "https://www.amisragas.co.il/recipts/"
     await page.goto(url)
-    await page.wait_for_selector("table#datatable")
+    await Utils.wait_for_authenticated_selector(page=page, selector="text=בחירת כתובת", platform=PLATFORM)
 
     download_dir = Path(f"downloads/{YEAR}/{PLATFORM}")
     download_dir.mkdir(parents=True, exist_ok=True)

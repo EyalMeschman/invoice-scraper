@@ -6,10 +6,10 @@ import os
 from pathlib import Path
 
 import pyotp
-from playwright.async_api import BrowserContext, Locator, Page
-from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from google_secrets_client import GoogleSecretsClient
+from playwright.async_api import BrowserContext, Locator, Page
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 
 class RulesNotFoundError(Exception):
@@ -38,7 +38,7 @@ class CookieExpiredError(Exception):
 
 class Utils:
     @staticmethod
-    def cover_footprints(context: BrowserContext) -> None:
+    def cover_footprints(context: BrowserContext):
         context.add_init_script(FINGERPRINT_SHIM)
 
     @staticmethod
@@ -164,13 +164,13 @@ class Utils:
             return None
 
     @staticmethod
-    async def click_selector_if_exists(page: Page, selector: str, timeout=3000):
+    async def click_selector_if_exists(page: Page, selector: str, timeout: int = 3000):
         locator = await Utils.wait_for_selector(page, selector, timeout)
         if locator:
             await locator.click()
 
     @staticmethod
-    async def wait_for_locator(locator: Locator, timeout=3000) -> Locator | None:
+    async def wait_for_locator(locator: Locator, timeout: int = 3000) -> Locator | None:
         try:
             await locator.wait_for(timeout=timeout)
             if await locator.count() > 0:

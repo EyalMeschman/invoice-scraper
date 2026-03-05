@@ -4,9 +4,9 @@ from enum import StrEnum
 from pathlib import Path
 
 import pytest
-from playwright.async_api import Page
 
 from google_secrets_client import GoogleSecretsClient
+from playwright.async_api import Page
 from src.scanner_config import YEAR, Platform, get_periods_to_download
 from src.utils import Utils
 
@@ -96,7 +96,7 @@ async def test_meitav_manual_login(
 async def test_meitav(
     page: Page,
     logger: logging.Logger,
-) -> None:
+):
     url = "https://www.my-meitav.co.il/appartments"
     await page.goto(url)
     await Utils.wait_for_authenticated_page(page=page, url=url, platform=PLATFORM)

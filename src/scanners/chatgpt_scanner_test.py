@@ -3,8 +3,8 @@ from enum import StrEnum
 from pathlib import Path
 
 import pytest
-from playwright.async_api import Page
 
+from playwright.async_api import Page
 from src.scanner_config import YEAR, Platform, get_periods_to_download
 from src.utils import Utils
 
@@ -56,7 +56,7 @@ async def download_invoice_by_period(page: Page, period: InvoicePeriod, download
 async def test_chatgpt_manual_login(
     page: Page,
     logger: logging.Logger,
-) -> None:
+):
     username = Utils.get_mandatory_env("CHATGPT_USERNAME")
     password = Utils.get_mandatory_env("CHATGPT_PASSWORD")
 
@@ -79,9 +79,10 @@ async def test_chatgpt_manual_login(
 async def test_chatgpt(
     page: Page,
     logger: logging.Logger,
-) -> None:
+):
     url = "https://chatgpt.com"
     await page.goto(url)
+    await Utils.wait_for_authenticated_page(page=page, url=url, platform=PLATFORM)
     await page.get_by_test_id("accounts-profile-button").last.click()
     await page.get_by_role("menuitem", name="Settings").click()
     await page.get_by_test_id("account-tab").click()

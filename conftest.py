@@ -4,11 +4,11 @@ import os
 
 import pytest
 from dotenv import load_dotenv
-from playwright.async_api import Browser, async_playwright
 from pytest import FixtureRequest, Item
 
 from google_secrets_client import GoogleSecretsClient
 from logger import Logger
+from playwright.async_api import Browser, async_playwright
 from src.utils import Utils
 
 PLATFORM_PATH = 0

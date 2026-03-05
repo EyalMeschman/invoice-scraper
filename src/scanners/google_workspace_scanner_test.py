@@ -3,7 +3,6 @@ from enum import StrEnum
 from pathlib import Path
 
 from playwright.async_api import Locator, Page
-
 from src.scanner_config import YEAR, Platform, get_periods_to_download
 from src.utils import Utils
 
@@ -67,7 +66,7 @@ async def download_invoice_by_period(page: Page, period: InvoicePeriod, download
 async def test_google_workspace(
     page: Page,
     logger: logging.Logger,
-) -> None:
+):
     username = Utils.get_mandatory_env("GOOGLE_WORKSPACE_USERNAME")
     password = Utils.get_mandatory_env("GOOGLE_WORKSPACE_PASSWORD")
 

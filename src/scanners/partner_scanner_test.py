@@ -3,8 +3,8 @@ from enum import StrEnum
 from pathlib import Path
 
 import pytest
-from playwright.async_api import Page
 
+from playwright.async_api import Page
 from src.scanner_config import YEAR, Platform, get_periods_to_download
 from src.utils import Utils
 
@@ -79,7 +79,7 @@ async def test_partner_manual_login(
 async def test_partner(
     page: Page,
     logger: logging.Logger,
-) -> None:
+):
     url = "https://www.partner.co.il/n/mypartner/invoice"
     await page.goto(url)
     await Utils.wait_for_authenticated_selector(page=page, selector="text=אפשר גם ח.פ.", should_exist=False, platform=PLATFORM)

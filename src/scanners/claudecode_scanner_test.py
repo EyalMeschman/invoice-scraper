@@ -3,8 +3,8 @@ from enum import StrEnum
 from pathlib import Path
 
 import pytest
-from playwright.async_api import Page
 
+from playwright.async_api import Page
 from src.scanner_config import YEAR, Platform, get_periods_to_download
 from src.utils import Utils
 
@@ -87,9 +87,10 @@ async def test_claudecode_manual_login(
 async def test_claudecode(
     page: Page,
     logger: logging.Logger,
-) -> None:
+):
     url = "https://claude.ai/settings/billing"
     await page.goto(url)
+    await Utils.wait_for_authenticated_page(page=page, url=url, platform=PLATFORM)
 
     download_dir = Path(f"downloads/{YEAR}/{PLATFORM}")
     download_dir.mkdir(parents=True, exist_ok=True)
