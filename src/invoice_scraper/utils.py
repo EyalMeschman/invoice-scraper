@@ -1,23 +1,27 @@
+from __future__ import annotations
+
 import asyncio
 import base64
 import json
 import logging
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pyotp
-
-from google_secrets_client import GoogleSecretsClient
 from playwright.async_api import BrowserContext, Locator, Page
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
+if TYPE_CHECKING:
+    from invoice_scraper.secrets_client import GoogleSecretsClient
+
+
+def get_project_root() -> Path:
+    return Path(__file__).parent.parent.parent
+
 
 class RulesNotFoundError(Exception):
-    """Exception raised when the url provided does not match any rules.
-
-    Attributes:
-        url -- the url that didn't match any rules
-    """
+    """Exception raised when the url provided does not match any rules."""
 
     def __init__(self, url: str):
         self.url = url
@@ -25,11 +29,7 @@ class RulesNotFoundError(Exception):
 
 
 class CookieExpiredError(Exception):
-    """Exception raised when the loaded cookies are expired.
-
-    Attributes:
-        domain - the site for which the cookies expired.
-    """
+    """Exception raised when the loaded cookies are expired."""
 
     def __init__(self, domain: str):
         self.domain = domain
@@ -71,10 +71,8 @@ class Utils:
         if not os.path.exists(path):
             os.makedirs(path)
 
-        # Save standard storage state (cookies + localStorage)
         await page.context.storage_state(path=full_path)
 
-        # Optionally save sessionStorage if requested
         if include_session_storage:
             await Utils._append_session_storage_to_state(page, full_path, logger)
 
@@ -82,10 +80,6 @@ class Utils:
 
     @staticmethod
     async def _append_session_storage_to_state(page: Page, state_file_path: str, logger: logging.Logger):
-        """
-        Private helper method to capture sessionStorage and append it to an existing state file.
-        """
-        # Capture sessionStorage from the page
         session_storage = await page.evaluate(
             """() => {
             const items = {};
@@ -101,11 +95,9 @@ class Utils:
             logger.warning("No sessionStorage found to save")
             return
 
-        # Load the existing state file
         with open(state_file_path, "r", encoding="utf-8") as file:
             state = json.load(file)
 
-        # Add sessionStorage to the appropriate origin
         origin = page.url.split("/")[0] + "//" + page.url.split("/")[2]
         origin_found = False
 
@@ -123,7 +115,6 @@ class Utils:
                 }
             )
 
-        # Save back with sessionStorage included
         with open(state_file_path, "w", encoding="utf-8") as file:
             json.dump(state, file, indent=2)
 
@@ -215,7 +206,6 @@ class Utils:
 
     @staticmethod
     async def blob_download_with_timeout(page: Page, new_page: Page, timeout: int = 10000) -> bytes:
-        # Wait for the page to load the blob URL
         start_wait = asyncio.get_event_loop().time()
         while not new_page.url.startswith("blob:"):
             if (asyncio.get_event_loop().time() - start_wait) * 1000 > timeout:
@@ -223,7 +213,6 @@ class Utils:
             await new_page.reload()
             await asyncio.sleep(1)
 
-        # Download from blob URL using the original page context
         blob_url = new_page.url
         return await Utils.download_pdf_from_blob_url(page, blob_url)
 

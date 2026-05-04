@@ -1,0 +1,1913 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.github/workflows/linter.yml
+.gitignore
+.python-version
+CLAUDE.md
+conftest.py
+google_secrets_client.py
+logger.py
+main.py
+pyproject.toml
+README.md
+src/scanner_config.py
+src/scanners/amisragas_scanner_test.py
+src/scanners/arnona_scanner_test.py
+src/scanners/chatgpt_scanner_test.py
+src/scanners/claudecode_scanner_test.py
+src/scanners/google_workspace_scanner_test.py
+src/scanners/partner_scanner_test.py
+src/scanners/water_scanner_test.py
+src/utils.py
+utils.py
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path=".gitignore">
+__pycache__
+.venv
+.env
+nul
+
+playwright/.auth/
+
+# Downloaded invoices
+downloads/
+
+*invoice-scraper*.json
+.keys
+
+vault/
+
+tasks/
+</file>
+
+<file path=".python-version">
+3.12
+</file>
+
+<file path="logger.py">
+import logging
+
+
+class Logger:
+    @staticmethod
+    def create() -> logging.Logger:
+        log = logging.getLogger(__name__)
+        if not log.hasHandlers():
+            formatter = logging.Formatter(
+                "[%(asctime)s] p%(process)s {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s",
+                "%m-%d %H:%M:%S",
+            )
+            console_handler = logging.StreamHandler()
+            console_handler.setLevel(logging.DEBUG)
+            console_handler.setFormatter(formatter)
+
+            log.addHandler(console_handler)
+
+        return log
+</file>
+
+<file path="main.py">
+def main():
+    print("Hello from invoice-scraper!")
+
+
+if __name__ == "__main__":
+    main()
+</file>
+
+<file path="README.md">
+# Invoice Scraper
+
+Automated invoice download system using Playwright for web scraping and authentication state management.
+
+## Overview
+
+This project automates the downloading of invoices from various Israeli municipal and utility services:
+
+- **Arnona** (Municipal Tax) - from city4u.co.il
+- **Water** (Meitav) - from my-meitav.co.il
+
+The system uses async Playwright for concurrent operations and includes sophisticated state management to handle authentication sessions.
+
+## Features
+
+- ✅ **Async/Await Architecture** - Full async support for concurrent downloads
+- ✅ **State Management** - Saves authentication state (cookies, localStorage, sessionStorage) to skip login
+- ✅ **Concurrent Download Racing** - Handles both blob URLs and direct downloads simultaneously
+- ✅ **SessionStorage Support** - Custom implementation for sites requiring sessionStorage authentication
+- ✅ **Manual Login Tests** - Save authentication state once, reuse untill token expires
+
+## Project Structure
+
+```
+invoice-scraper/
+├── src/
+│   ├── scanners/
+│   │   ├── arnona_scanner_test.py   # Arnona (city tax) automation (For example)
+│   └── utils.py                     # Shared utilities (state management, helpers)
+├── playwright/.auth/                # Saved authentication states
+│   ├── arnona.json                  # Arnona session state (For example)
+├── downloads/                       # Downloaded invoices organized by year/service
+├── conftest.py                      # Pytest fixtures and configuration
+└── README.md
+```
+
+## Installation
+
+1. **Install dependencies:**
+
+   ```bash
+   uv sync
+   ```
+
+2. **Install Playwright browsers:**
+
+   ```bash
+   uv run playwright install chromium
+   ```
+
+3. **Set up environment variables:**
+   Create a `.env` file with required credentials:
+   ```env
+   DEFAULT_ID=your_id
+   JESS_ID=your_id
+   ```
+
+## How It Works
+
+### Authentication State Management
+
+The project uses a sophisticated state management system to avoid repeated logins:
+
+1. **Cookies & localStorage** - Standard Playwright `storage_state()`
+2. **SessionStorage** - Custom implementation (Playwright doesn't support this natively)
+
+#### Why SessionStorage Matters
+
+Some sites (like Meitav) store authentication tokens in sessionStorage:
+
+```javascript
+sessionStorage.setItem(
+  "currentUser",
+  JSON.stringify({
+    access_token: "...",
+    token_type: "bearer",
+    expires_in: 14399,
+  })
+);
+```
+
+Our custom solution:
+
+- **Saves**: `Utils.record_state(page, platform, logger, include_session_storage=True)`
+- **Loads**: Automatically injected by the `page` fixture when using `@pytest.mark.using_state(platform)`
+
+### Concurrent Download Racing
+
+For blob URL downloads, the system races two methods simultaneously:
+
+1. **Direct Download** - Expects a download event
+2. **Blob URL Fetch** - Fetches blob content via JavaScript
+
+Whichever succeeds first wins, eliminating timeout waits!
+
+## Example Running Tests
+
+### Arnona (No Manual Login Required)
+
+Arnona doesn't require state management - just run the test directly:
+
+```bash
+uv run pytest src/scanners/arnona_scanner_test.py::test_arnona -v
+```
+
+**What it does:**
+
+1. Navigates to city4u.co.il
+2. Logs in with credentials from `.env`
+3. Downloads invoices for specified periods
+4. Saves PDFs to `downloads/{YEAR}/arnona/`
+
+### Meitav - Manual Login (First Time Setup)
+
+**Run this ONCE to save authentication state:**
+
+```bash
+uv run pytest src/scanners/water_scanner_test.py::test_meitav_manual_login -v -m manual
+```
+
+**What it does:**
+
+1. Opens browser (non-headless)
+2. Navigates to my-meitav.co.il
+3. Enters credentials
+4. **PAUSES** - You manually complete login (handle captcha, 2FA, etc.)
+5. Saves complete state including sessionStorage to `playwright/.auth/meitav.json`
+
+**Important:** The test includes `page.pause()` - the browser will pause for you to complete the login manually. Press "Resume" in the Playwright inspector once finished with captcha.
+
+### Meitav - Regular Test (Uses Saved State)
+
+**Run this for automated downloads using saved state:**
+
+```bash
+uv run pytest src/scanners/water_scanner_test.py::test_meitav -v
+```
+
+**What it does:**
+
+1. Loads saved state from `playwright/.auth/meitav.json`
+2. Injects sessionStorage items (`currentUser`, `userName`)
+3. Navigates to my-meitav.co.il - **already logged in!**
+4. Downloads invoices concurrently for specified periods
+5. Saves PDFs to `downloads/{YEAR}/meitav/`
+
+**Note:** If the authentication token expires, re-run the manual login test.
+
+## Test Markers
+
+The project uses pytest markers for different test types:
+
+- `@pytest.mark.manual` - Tests that require manual interaction (login)
+- `@pytest.mark.using_state(platform)` - Tests that load saved authentication state
+
+## Configuration
+
+### Periods to Download
+
+Edit the test files to configure which periods to download:
+
+**Arnona:**
+
+```python
+PERIODS_TO_DOWNLOAD = [
+    InvoicePeriod.PERIOD_4,  # Jul-Aug
+    InvoicePeriod.PERIOD_5,  # Sep-Oct
+    InvoicePeriod.PERIOD_6,  # Nov-Dec
+]
+```
+
+## Utils Class Reference
+
+### State Management
+
+```python
+# Save state with sessionStorage (for sites like Meitav)
+await Utils.record_state(page, platform, logger, include_session_storage=True)
+
+# Save state without sessionStorage (standard)
+await Utils.record_state(page, platform, logger)
+```
+
+## Troubleshooting
+
+### "Authentication failed - still on login page"
+
+The saved state has expired. Re-run the manual login test:
+
+```bash
+uv run pytest src/scanners/water_scanner_test.py::test_meitav_manual_login -v -m manual
+```
+
+### "State file not found"
+
+You need to run the manual login test first to create the state file.
+
+### Downloads failing with timeout
+
+Check if the site structure has changed. The selectors may need updating.
+
+### Blob URL downloads hanging
+
+The concurrent racing system should handle this, but if issues persist, check the browser console for errors.
+
+## Architecture Decisions
+
+### Why Async?
+
+1. **Concurrent Downloads** - Download multiple invoices simultaneously
+2. **Racing Downloads** - Try blob and direct download methods at the same time
+3. **Better Resource Usage** - Non-blocking I/O operations
+
+### Why Custom SessionStorage Handling?
+
+Playwright's `storage_state()` only captures:
+
+- ✅ Cookies
+- ✅ localStorage
+- ❌ sessionStorage (not supported)
+
+Many modern sites (like Meitav) store auth tokens in sessionStorage, so we built a custom solution:
+
+- `Utils._append_session_storage_to_state()` - Captures and saves sessionStorage
+- `page` fixture in conftest.py - Injects sessionStorage on page load
+
+### Inspecting Saved State
+
+Check the saved authentication state:
+
+```bash
+cat playwright/.auth/meitav.json
+```
+
+Look for:
+
+- `cookies` array - Authentication cookies
+- `origins[].localStorage` - localStorage items
+- `origins[].sessionStorage` - Custom sessionStorage items
+
+## Contributing
+
+When adding new scanners:
+
+1. **Create manual login test when needed:**
+
+   - Mark with `@pytest.mark.manual`
+   - Include `page.pause()` for manual completion
+   - Save state with `include_session_storage=True` if needed
+
+2. **Determine if sessionStorage is needed:**
+
+   - If regular test after manual test logs you in, you don't need it
+
+3. **Create regular test:**
+   - Mark with `@pytest.mark.using_state(platform)` if needed
+   - The fixture will handle state loading automatically
+
+## License
+
+This project is for personal use. Ensure compliance with the terms of service of the sites you're scraping.
+
+---
+
+**Happy Automating!** 🎉
+</file>
+
+<file path="src/scanners/amisragas_scanner_test.py">
+import logging
+from enum import StrEnum
+from pathlib import Path
+
+import pytest
+
+from playwright.async_api import Page
+from src.scanner_config import YEAR, Platform, get_periods_to_download
+from src.utils import Utils
+
+
+class InvoicePeriod(StrEnum):
+    PERIOD_1 = "01"  # January
+    PERIOD_2 = "02"  # February
+    PERIOD_3 = "03"  # March
+    PERIOD_4 = "04"  # April
+    PERIOD_5 = "05"  # May
+    PERIOD_6 = "06"  # June
+    PERIOD_7 = "07"  # July
+    PERIOD_8 = "08"  # August
+    PERIOD_9 = "09"  # September
+    PERIOD_10 = "10"  # October
+    PERIOD_11 = "11"  # November
+    PERIOD_12 = "12"  # December
+
+
+PLATFORM = Platform.AMISRAGAS
+PERIODS_TO_DOWNLOAD = [InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)]
+
+
+async def download_invoice_by_period(page: Page, period: InvoicePeriod, download_dir: Path, logger: logging.Logger) -> Path:
+    row = page.locator(f"table#datatable tbody tr:has-text('{period}')").first
+    link_cell = row.locator("td").first
+
+    async with page.context.expect_page() as new_page_info:
+        await link_cell.click()
+    new_page: Page = await new_page_info.value
+    await new_page.wait_for_load_state()
+
+    blob_url = new_page.url
+    pdf_content = await Utils.download_pdf_from_blob_url(new_page, blob_url)
+
+    save_path = download_dir / f"{period}.pdf"
+    save_path.write_bytes(pdf_content)
+
+    logger.info(f"Downloaded {period.name} to {save_path}")
+    await new_page.close()
+
+    return save_path
+
+
+@pytest.mark.manual
+async def test_amisragas_manual_login(
+    page: Page,
+    logger: logging.Logger,
+):
+    phone_num = Utils.get_mandatory_env("PARTIAL_PHONE_NUMBER")
+    phone_initial = Utils.get_mandatory_env("PHONE_NUMBER_INITIAL")
+    user_id = Utils.get_mandatory_env("DEFAULT_ID")
+
+    url = "https://www.amisragas.co.il/recipts/"
+    await page.goto(url)
+    await page.locator("#govId").fill(user_id)
+    await page.select_option("#phoneCode", value=phone_initial)
+    await page.locator("#phoneNumber").fill(phone_num)
+    await page.keyboard.press("Enter")
+    await page.pause()
+    await page.wait_for_url(url)
+
+    await Utils.record_state(page=page, platform=PLATFORM, logger=logger, include_session_storage=True)
+
+
+@pytest.mark.using_state(PLATFORM)
+async def test_amisragas(
+    page: Page,
+    logger: logging.Logger,
+):
+    url = "https://www.amisragas.co.il/recipts/"
+    await page.goto(url)
+    await Utils.wait_for_authenticated_selector(page=page, selector="text=בחירת כתובת", platform=PLATFORM)
+
+    download_dir = Path(f"downloads/{YEAR}/{PLATFORM}")
+    download_dir.mkdir(parents=True, exist_ok=True)
+
+    for period in PERIODS_TO_DOWNLOAD:
+        await download_invoice_by_period(page, period, download_dir, logger)
+
+    logger.info(f"All downloads completed in {download_dir}")
+</file>
+
+<file path="utils.py">
+from pathlib import Path
+
+
+def get_project_root() -> Path:
+    """
+    Get /hope path
+    """
+    return Path(__file__).parent
+</file>
+
+<file path="CLAUDE.md">
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+Automated invoice download system using async Playwright for web scraping Israeli municipal and utility services (Arnona, Water/Meitav). The system uses sophisticated authentication state management with sessionStorage support to maintain login sessions across runs.
+
+## Development Commands
+
+### Install Dependencies
+```bash
+uv sync
+```
+
+### Install Playwright Browsers
+```bash
+uv run playwright install chromium
+```
+
+### Run Tests
+
+Run a specific test:
+```bash
+uv run pytest src/scanners/arnona_scanner_test.py::test_arnona -v
+uv run pytest src/scanners/water_scanner_test.py::test_meitav -v
+```
+
+Run manual login tests (requires user interaction):
+```bash
+uv run pytest src/scanners/water_scanner_test.py::test_meitav_manual_login -v -m manual
+```
+
+Run all manual tests:
+```bash
+uv run pytest -m manual -v
+```
+
+### Linting
+```bash
+uv run ruff check src/
+```
+
+## Architecture
+
+### Authentication State Management
+
+The core innovation is a custom authentication state system that extends Playwright's built-in `storage_state()`:
+
+**Standard Playwright state (cookies + localStorage):**
+- Saved via `await page.context.storage_state(path=state_file)`
+- Loaded via `context = await browser.new_context(storage_state=state_file)`
+
+**Custom sessionStorage extension:**
+- Many sites (e.g., Meitav) store auth tokens in sessionStorage, which Playwright doesn't capture
+- `Utils._append_session_storage_to_state()` captures sessionStorage via JavaScript evaluation and appends to state JSON
+- `page` fixture in conftest.py:39 automatically injects sessionStorage when `@pytest.mark.using_state(platform)` is used
+- State file structure includes custom `origins[].sessionStorage` array alongside standard fields
+
+### Pytest Markers & Fixtures
+
+**Custom markers (defined in conftest.py:93-98):**
+- `@pytest.mark.manual` - Tests requiring manual user interaction (login with captcha/2FA)
+- `@pytest.mark.using_state(platform)` - Tests that load saved authentication state for the given platform
+
+**Key fixtures:**
+- `page` fixture (conftest.py:39) - Creates browser page, handles state loading, injects sessionStorage
+- `browser` fixture (conftest.py:31) - Creates Chromium browser instance with `headless=False`
+- `logger` fixture (conftest.py:21) - Session-scoped logger
+- `google_secrets_client` fixture (conftest.py:26) - Access to Google Secret Manager
+
+### Browser Fingerprinting
+
+`Utils.cover_footprints()` (src/utils.py:147) injects `FINGERPRINT_SHIM` script to mask automation:
+- Spoofs navigator properties (platform, language, webdriver)
+- Patches Canvas/WebGL fingerprinting methods
+- Deterministic perturbation with seeded randomness
+
+### Concurrent Download Racing
+
+For blob URL downloads (water_scanner_test.py:68-116), two methods race concurrently:
+1. `try_direct_download()` - Expects Playwright download event
+2. `try_blob_download()` - Fetches blob URL content via JavaScript
+
+Uses `asyncio.wait(..., return_when=asyncio.FIRST_COMPLETED)` to take whichever succeeds first, eliminating timeout waits.
+
+### Scanner Pattern
+
+Each scanner in `src/scanners/` follows a two-test pattern:
+
+1. **Manual login test** (marked `@pytest.mark.manual`):
+   - Opens browser non-headless
+   - Fills credentials
+   - Calls `page.pause()` for manual intervention (captcha, 2FA)
+   - Saves state with `Utils.record_state(..., include_session_storage=True)`
+
+2. **Regular test** (marked `@pytest.mark.using_state(platform)`):
+   - Automatically loads saved state via fixture
+   - Verifies authentication with `Utils.wait_for_authenticated_page()`
+   - Downloads invoices
+
+### Environment & Secrets
+
+Configuration loaded via dotenv (conftest.py:16-17):
+- `.env.defaults` loaded first
+- `.env` overrides defaults
+
+Secrets retrieved via `GoogleSecretsClient` from Google Secret Manager:
+- Requires `GOOGLE_CLOUD_PROJECT` and `GOOGLE_APPLICATION_CREDENTIALS_PATH` env vars
+- Use `Utils.get_secret_from_google_secrets_client(google_secrets_client, "SECRET_NAME")`
+
+### Utils Module Organization
+
+`src/utils.py` contains reusable utilities:
+- **State management**: `record_state()`, `_append_session_storage_to_state()`
+- **Authentication helpers**: `wait_for_authenticated_page()`, `wait_for_authenticated_selector()`
+- **Selector utilities**: `wait_for_selector()`, `click_selector_if_exists()`, `wait_for_locator()`
+- **Download utilities**: `download_pdf_from_blob_url()`
+- **Security**: `cover_footprints()`, `get_totp()`
+- **Environment**: `get_mandatory_env()`
+
+### File Structure Conventions
+
+```
+downloads/{YEAR}/{platform}/       # Downloaded PDFs organized by year and platform
+playwright/.auth/{platform}.json   # Saved authentication states (git-ignored)
+src/scanners/{platform}_scanner_test.py  # Scanner implementations
+```
+
+## Pytest Configuration
+
+In `pyproject.toml`:
+- `asyncio_mode = "auto"` - Enables async test functions without explicit decorators
+- `asyncio_default_fixture_loop_scope = "function"` - Each test gets its own event loop
+
+## Important Notes
+
+- Browser always runs with `headless=False` for debugging and manual login tests
+- SessionStorage injection happens via `page.goto(origin)` then JavaScript evaluation (conftest.py:78-85)
+- State files contain sensitive auth tokens - ensure they're git-ignored
+- When authentication expires, re-run the manual login test to refresh state
+- TOTP support available via `Utils.get_totp(secret)` using pyotp library
+</file>
+
+<file path="google_secrets_client.py">
+import logging
+import os
+
+from dotenv import load_dotenv
+from google.cloud import secretmanager
+
+from utils import get_project_root
+
+load_dotenv(".env.defaults")
+load_dotenv(".env", override=True)
+
+
+class GoogleSecretsClient:
+    """Wrapper for Google Secret Manager client."""
+
+    def __init__(self, logger: logging.Logger):
+        """
+        Initialize Secret Manager client.
+        """
+        # Set up authentication
+        self._logger = logger
+        self.project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+        credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_PATH")
+        if credentials_path:
+            full_path = os.path.join(get_project_root(), credentials_path)
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = full_path
+        self.client = secretmanager.SecretManagerServiceClient()
+
+    def get_secret(self, secret_name: str, version: str = "latest") -> str:
+        """
+        Retrieve a secret from Google Secret Manager.
+        """
+        # Build the resource name
+        name = f"projects/{self.project_id}/secrets/{secret_name}/versions/{version}"
+
+        # Access the secret version
+        response = self.client.access_secret_version(request={"name": name})
+
+        # Decode the secret payload
+        secret_value = response.payload.data.decode("UTF-8")
+
+        return secret_value
+</file>
+
+<file path="pyproject.toml">
+[project]
+name = "invoice-scraper"
+version = "0.1.0"
+description = "Automated invoice download system using Playwright"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "playwright>=1.40.0",
+    "pytest-playwright>=0.4.0",
+    "pytest-asyncio>=0.24.0",
+    "google-cloud-secret-manager>=2.0.0",
+    "google-auth>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "ruff>=0.9.0",
+    "pytest>=9.0.2",
+    "pyotp>=2.9.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 140
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "PL", "G", "TRY"]
+ignore = [
+    "D100",     # missing-module-docstring
+    "D101",     # missing-class-docstring
+    "D103",     # missing-function-docstring
+    "G004",     # logging-fstring-interpolation
+    "TRY002",   # broad-exception-raised (raise-vanilla-class)
+    "TRY003",   # long exception messages (commonly triggered with TRY)
+    "TRY300",   # try-consider-else
+    "PLR0913",  # too-many-arguments
+    "PLR2004",  # magic-value-comparison
+    "PLR0914",  # too-many-locals
+    "PLR0917",  # too-many-positional-arguments
+]
+</file>
+
+<file path=".github/workflows/linter.yml">
+name: linter
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  linter:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version-file: ".python-version"
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Run Linter
+        run: |
+          uv sync
+          uv run ruff format --check .
+          uv run ruff check .
+</file>
+
+<file path="src/scanners/claudecode_scanner_test.py">
+import logging
+from enum import StrEnum
+from pathlib import Path
+
+import pytest
+
+from playwright.async_api import Page
+from src.scanner_config import YEAR, Platform, get_periods_to_download
+from src.utils import Utils
+
+
+class InvoicePeriod(StrEnum):
+    PERIOD_1 = "Jan"  # January
+    PERIOD_2 = "Feb"  # February
+    PERIOD_3 = "Mar"  # March
+    PERIOD_4 = "Apr"  # April
+    PERIOD_5 = "May"  # May
+    PERIOD_6 = "Jun"  # June
+    PERIOD_7 = "Jul"  # July
+    PERIOD_8 = "Aug"  # August
+    PERIOD_9 = "Sep"  # September
+    PERIOD_10 = "Oct"  # October
+    PERIOD_11 = "Nov"  # November
+    PERIOD_12 = "Dec"  # December
+
+
+PLATFORM = Platform.CLAUDECODE
+PERIODS_TO_DOWNLOAD = [InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)]
+
+
+async def download_invoice_by_period(page: Page, period: InvoicePeriod, download_dir: Path, logger: logging.Logger) -> Path:
+    invoice_list = page.get_by_test_id("invoice-list")
+
+    row = invoice_list.locator("tbody tr").filter(has_text=period).filter(has_text=str(YEAR))
+
+    async with page.context.expect_page() as new_page_info:
+        await row.get_by_role("link", name="View").click()
+
+    new_page = await new_page_info.value
+    await new_page.wait_for_url("https://invoice.stripe.com/**")
+
+    async with new_page.expect_download() as download_info:
+        await new_page.get_by_test_id("download-invoice-receipt-pdf-button").click()
+
+    download = await download_info.value
+
+    save_path = download_dir / f"{PLATFORM}_{period}_{YEAR}.pdf"
+    await download.save_as(save_path)
+
+    await new_page.close()
+
+    logger.info(f"Downloaded {period.name} to {save_path}")
+
+    return save_path
+
+
+@pytest.mark.manual
+@pytest.mark.cdp
+async def test_claudecode_manual_login(
+    cdp_page: Page,
+    logger: logging.Logger,
+) -> None:
+    """
+    Manual login for Claude Code via CDP.
+
+    Before running this test, start Chrome with:
+    "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
+        --remote-debugging-port=9222 --user-data-dir="C:\\Temp\\chrome_dev_session"
+
+    Then:
+    1. Navigate to https://claude.ai
+    2. Complete the login
+    3. Run this test - it will connect and save the authentication state
+    """
+    username = Utils.get_mandatory_env("CLAUDECODE_USERNAME")
+    url = "https://claude.ai/new"
+
+    await cdp_page.goto(url)
+    await cdp_page.locator("#email").fill(username)
+    await cdp_page.pause()
+    await cdp_page.wait_for_url(url)
+
+    await Utils.record_state(page=cdp_page, platform=PLATFORM, logger=logger, include_session_storage=True)
+
+
+@pytest.mark.using_state(PLATFORM)
+async def test_claudecode(
+    page: Page,
+    logger: logging.Logger,
+):
+    url = "https://claude.ai/settings/billing"
+    await page.goto(url)
+    await Utils.wait_for_authenticated_page(page=page, url=url, platform=PLATFORM)
+
+    download_dir = Path(f"downloads/{YEAR}/{PLATFORM}")
+    download_dir.mkdir(parents=True, exist_ok=True)
+
+    for period in PERIODS_TO_DOWNLOAD:
+        await download_invoice_by_period(page=page, period=period, download_dir=download_dir, logger=logger)
+
+    logger.info(f"All downloads completed in {download_dir}")
+</file>
+
+<file path="src/scanners/chatgpt_scanner_test.py">
+import logging
+from enum import StrEnum
+from pathlib import Path
+
+import pytest
+
+from playwright.async_api import Page
+from src.scanner_config import YEAR, Platform, get_periods_to_download
+from src.utils import Utils
+
+
+class InvoicePeriod(StrEnum):
+    PERIOD_1 = "Jan"  # January
+    PERIOD_2 = "Feb"  # February
+    PERIOD_3 = "Mar"  # March
+    PERIOD_4 = "Apr"  # April
+    PERIOD_5 = "May"  # May
+    PERIOD_6 = "Jun"  # June
+    PERIOD_7 = "Jul"  # July
+    PERIOD_8 = "Aug"  # August
+    PERIOD_9 = "Sep"  # September
+    PERIOD_10 = "Oct"  # October
+    PERIOD_11 = "Nov"  # November
+    PERIOD_12 = "Dec"  # December
+
+
+PLATFORM = Platform.CHATGPT
+PERIODS_TO_DOWNLOAD = [InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)]
+
+
+async def download_invoice_by_period(page: Page, period: InvoicePeriod, download_dir: Path, logger: logging.Logger) -> Path:
+    invoice_row = page.get_by_test_id("billing-portal-invoice-row").filter(has_text=period).filter(has_text=str(YEAR))
+
+    async with page.context.expect_page() as new_page_info:
+        await invoice_row.click()
+
+    new_page = await new_page_info.value
+    await new_page.wait_for_url("https://invoice.stripe.com/**")
+
+    async with new_page.expect_download() as download_info:
+        await new_page.get_by_test_id("download-invoice-receipt-pdf-button").click()
+
+    download = await download_info.value
+
+    save_path = download_dir / f"{PLATFORM}_{period}_{YEAR}.pdf"
+    await download.save_as(save_path)
+
+    await new_page.close()
+
+    logger.info(f"Downloaded {period.name} to {save_path}")
+
+    return save_path
+
+
+@pytest.mark.manual
+async def test_chatgpt_manual_login(
+    page: Page,
+    logger: logging.Logger,
+):
+    username = Utils.get_mandatory_env("CHATGPT_USERNAME")
+    password = Utils.get_mandatory_env("CHATGPT_PASSWORD")
+
+    url = "https://chatgpt.com"
+    await page.goto(url)
+    await page.get_by_role("button", name="Log in").click()
+    await page.get_by_role("button", name="Continue with Google").click()
+    await page.wait_for_url("https://accounts.google.com/**")
+    await page.locator("#identifierId").fill(username)
+    await page.keyboard.press("Enter")
+    await page.locator('input[name="Passwd"]').fill(password)
+    await page.keyboard.press("Enter")
+    await page.pause()
+    await page.wait_for_url(url)
+
+    await Utils.record_state(page=page, platform=PLATFORM, logger=logger, include_session_storage=True)
+
+
+@pytest.mark.using_state(PLATFORM)
+async def test_chatgpt(
+    page: Page,
+    logger: logging.Logger,
+):
+    url = "https://chatgpt.com"
+    await page.goto(url)
+    await Utils.wait_for_authenticated_page(page=page, url=url, platform=PLATFORM)
+    await page.get_by_test_id("accounts-profile-button").last.click()
+    await page.get_by_role("menuitem", name="Settings").click()
+    await page.get_by_test_id("account-tab").click()
+    payment_section = page.locator('div:has-text("Payment")')
+    await payment_section.get_by_role("button", name="Manage").last.click()
+    await page.wait_for_url("https://pay.openai.com/**")
+
+    # If downloading more than 3 periods, press "view more"
+    if len(PERIODS_TO_DOWNLOAD) > 3:
+        await page.get_by_test_id("view-more-button").click()
+
+    download_dir = Path(f"downloads/{YEAR}/{PLATFORM}")
+    download_dir.mkdir(parents=True, exist_ok=True)
+
+    for period in PERIODS_TO_DOWNLOAD:
+        await download_invoice_by_period(page=page, period=period, download_dir=download_dir, logger=logger)
+
+    logger.info(f"All downloads completed in {download_dir}")
+</file>
+
+<file path="src/scanners/google_workspace_scanner_test.py">
+import logging
+from enum import StrEnum
+from pathlib import Path
+
+from playwright.async_api import Locator, Page
+from src.scanner_config import YEAR, Platform, get_periods_to_download
+from src.utils import Utils
+
+
+class InvoicePeriod(StrEnum):
+    PERIOD_1 = "Jan"  # January
+    PERIOD_2 = "Feb"  # February
+    PERIOD_3 = "Mar"  # March
+    PERIOD_4 = "Apr"  # April
+    PERIOD_5 = "May"  # May
+    PERIOD_6 = "Jun"  # June
+    PERIOD_7 = "Jul"  # July
+    PERIOD_8 = "Aug"  # August
+    PERIOD_9 = "Sep"  # September
+    PERIOD_10 = "Oct"  # October
+    PERIOD_11 = "Nov"  # November
+    PERIOD_12 = "Dec"  # December
+
+
+PLATFORM = Platform.GOOGLE_WORKSPACE
+PERIODS_TO_DOWNLOAD = [InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)]
+
+
+async def download_invoice_by_period(page: Page, period: InvoicePeriod, download_dir: Path, logger: logging.Logger) -> Path:
+    iframe_frame: Locator = page.locator('iframe[name^="embeddedBilling"]')
+
+    content_frame = iframe_frame.content_frame
+    if content_frame is None:
+        raise ValueError("Could not find billing iframe")
+
+    period_heading = content_frame.get_by_role("heading", name=f"{period} 1")
+    await period_heading.wait_for()
+
+    is_expanded = await period_heading.get_attribute("aria-expanded") == "true"
+
+    if not is_expanded:
+        await period_heading.click()
+        await page.wait_for_timeout(500)
+
+    section_id = await period_heading.get_attribute("aria-controls")
+    if not section_id:
+        raise ValueError(f"Heading for {period} has no aria-controls attribute")
+
+    period_section = content_frame.locator(f"#{section_id}")
+    pdf_invoice_button = period_section.get_by_role("button", name="(Created:").first
+    await pdf_invoice_button.click()
+
+    async with page.expect_download() as download_info:
+        await content_frame.get_by_role("menuitem", name="Download").click()
+
+    download = await download_info.value
+
+    save_path = download_dir / f"{PLATFORM}_{period}_{YEAR}.pdf"
+    await download.save_as(save_path)
+
+    logger.info(f"Downloaded {period.name} to {save_path}")
+
+    return save_path
+
+
+async def test_google_workspace(
+    page: Page,
+    logger: logging.Logger,
+):
+    username = Utils.get_mandatory_env("GOOGLE_WORKSPACE_USERNAME")
+    password = Utils.get_mandatory_env("GOOGLE_WORKSPACE_PASSWORD")
+
+    url = "https://admin.google.com/u/7/ac/billing/accounts/w2D_un6NA_-1iXkWulbFKw/transactions?hl=en"
+    await page.goto(url)
+    await page.locator("#identifierId").fill(username)
+    await page.keyboard.press("Enter")
+    await page.locator('input[name="Passwd"]').fill(password)
+    await page.keyboard.press("Enter")
+    await page.wait_for_url("**/transactions?**")
+
+    # If downloading more than 2 periods, change filter to "This year"
+    if len(PERIODS_TO_DOWNLOAD) > 2:
+        iframe_frame: Locator = page.locator('iframe[name^="embeddedBilling"]')
+        content_frame = iframe_frame.content_frame
+        if not content_frame:
+            raise ValueError("Could not find billing iframe")
+
+        await content_frame.get_by_role("listbox").filter(has_text="Last 3 months").click()
+        await content_frame.get_by_role("menuitem", name="This year").click()
+        await content_frame.get_by_role("heading", name="Jan 1").wait_for()
+
+    download_dir = Path(f"downloads/{YEAR}/{PLATFORM}")
+    download_dir.mkdir(parents=True, exist_ok=True)
+
+    for period in PERIODS_TO_DOWNLOAD:
+        await download_invoice_by_period(page=page, period=period, download_dir=download_dir, logger=logger)
+
+    logger.info(f"All downloads completed in {download_dir}")
+</file>
+
+<file path="conftest.py">
+import json
+import logging
+import os
+
+import pytest
+from dotenv import load_dotenv
+from pytest import FixtureRequest, Item
+
+from google_secrets_client import GoogleSecretsClient
+from logger import Logger
+from playwright.async_api import Browser, async_playwright
+from src.utils import Utils
+
+PLATFORM_PATH = 0
+
+load_dotenv(".env.defaults")
+load_dotenv(".env", override=True)
+
+
+@pytest.fixture(name="logger", scope="session")
+def fixture_logger() -> logging.Logger:
+    return Logger.create()
+
+
+@pytest.fixture(name="google_secrets_client", scope="session")
+def fixture_google_secrets_client(logger: logging.Logger) -> GoogleSecretsClient:
+    return GoogleSecretsClient(logger=logger)
+
+
+@pytest.fixture
+async def browser():
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(
+            channel="chrome",
+            headless=False,
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--disable-features=IsolateOrigins,site-per-process",
+            ],
+        )
+        yield browser
+        await browser.close()
+
+
+@pytest.fixture
+async def page(browser: Browser, logger: logging.Logger, request: FixtureRequest):
+    # Check if test has using_state marker
+    item: Item = request.node
+    marker = item.get_closest_marker("using_state")
+    storage_state = None
+    session_storage_data = None
+
+    if marker:
+        platform = marker.args[PLATFORM_PATH]
+        state_path = os.path.join("playwright", ".auth", f"{platform}.json")
+
+        if not os.path.exists(state_path):
+            raise FileNotFoundError(f"State file not found: {state_path}")
+
+        storage_state = state_path
+        logger.info(f"Loading state from {state_path}")
+
+        # Load localStorage and sessionStorage if present in the state file
+        with open(state_path, "r", encoding="utf-8") as f:
+            state_data = json.load(f)
+            for origin_data in state_data.get("origins", []):
+                if "sessionStorage" in origin_data or "localStorage" in origin_data:
+                    origin = origin_data["origin"]
+                    local_storage = origin_data.get("localStorage", [])
+                    session_storage = origin_data.get("sessionStorage", [])
+
+                    session_storage_data = {
+                        "origin": origin,
+                        "localStorage": local_storage,
+                        "sessionStorage": session_storage,
+                    }
+                    logger.info(f"Found sessionStorage for {origin_data['origin']} with {len(origin_data['sessionStorage'])} items")
+                    break
+
+    context = await browser.new_context(
+        storage_state=storage_state,
+        bypass_csp=True,
+        ignore_https_errors=True,
+    )
+    Utils.cover_footprints(context)
+
+    # Inject localStorage and sessionStorage via init script to run BEFORE page JS
+    if session_storage_data:
+        origin = session_storage_data["origin"]
+        script_lines = []
+
+        # Inject localStorage - use try/catch in case localStorage isn't available yet
+        script_lines.append("try {")
+        for item in session_storage_data["localStorage"]:
+            name = json.dumps(item["name"])
+            value = json.dumps(item["value"])
+            script_lines.append(f"  localStorage.setItem({name}, {value});")
+
+        # Inject sessionStorage
+        for item in session_storage_data["sessionStorage"]:
+            name = json.dumps(item["name"])
+            value = json.dumps(item["value"])
+            script_lines.append(f"  sessionStorage.setItem({name}, {value});")
+
+        script_lines.append("} catch(e) { console.error('Storage injection failed:', e); }")
+        init_script = "\n".join(script_lines)
+        await context.add_init_script(init_script)
+        logger.info(
+            "Injected init script for %d localStorage + %d sessionStorage items",
+            len(session_storage_data["localStorage"]),
+            len(session_storage_data["sessionStorage"]),
+        )
+
+    page = await context.new_page()
+    page.on("console", lambda msg: logger.debug(msg.text))
+
+    # Inject sessionStorage if we loaded it
+    if session_storage_data:
+        await page.goto(session_storage_data["origin"])
+        for item in session_storage_data["items"]:
+            # Use parameterized evaluation to prevent JavaScript injection
+            await page.evaluate(
+                "(data) => sessionStorage.setItem(data.name, data.value)",
+                {"name": item["name"], "value": item["value"]},
+            )
+        logger.info(f"Injected {len(session_storage_data['items'])} sessionStorage items")
+
+    yield page
+
+    await page.close()
+    await context.close()
+
+
+@pytest.fixture
+async def cdp_page(logger: logging.Logger):
+    """
+    Connect to a manually opened Chrome instance via CDP.
+
+    Before running the test, start Chrome with:
+    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --remote-debugging-port=9222 --user-data-dir="C:\\Temp\\chrome_dev_session"
+    """
+    async with async_playwright() as p:
+        logger.info("Connecting to Chrome via CDP on port 9222...")
+        try:
+            browser = await p.chromium.connect_over_cdp("http://localhost:9222")
+            logger.info("Successfully connected to Chrome!")
+        except Exception as e:
+            raise RuntimeError(f"Could not connect to Chrome.\nError: {e}") from e
+
+        if not browser.contexts:
+            raise RuntimeError("No browser contexts found. Make sure Chrome has at least one window open.")
+
+        context = browser.contexts[0]
+
+        page = context.pages[0] if context.pages else await context.new_page()
+
+        yield page
+
+        logger.info("Disconnecting from Chrome (browser will stay open)")
+        await browser.close()
+
+
+def pytest_configure(config: pytest.Config):
+    config.addinivalue_line("markers", "manual: mark test as manual login")
+    config.addinivalue_line("markers", "cdp: mark test to use CDP connection to manual Chrome")
+    config.addinivalue_line(
+        "markers",
+        "using_state(platform): mark test to use state for the given platform",
+    )
+</file>
+
+<file path="src/scanners/arnona_scanner_test.py">
+import logging
+from enum import StrEnum
+from pathlib import Path
+
+from google_secrets_client import GoogleSecretsClient
+from playwright.async_api import Page
+from src.scanner_config import YEAR, Platform, get_periods_to_download
+from src.utils import Utils
+
+
+class InvoicePeriod(StrEnum):
+    PERIOD_1 = "ארנונה תקופתי 1"  # Jan-Feb (+ Annual)
+    PERIOD_2 = "ארנונה תקופתי 2"  # Mar-Apr
+    PERIOD_3 = "ארנונה תקופתי 3"  # May-Jun
+    PERIOD_4 = "ארנונה תקופתי 4"  # Jul-Aug
+    PERIOD_5 = "ארנונה תקופתי 5"  # Sep-Oct
+    PERIOD_6 = "ארנונה תקופתי 6"  # Nov-Dec
+
+
+PLATFORM = Platform.ARNONA
+PERIODS_TO_DOWNLOAD = [InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)]
+
+
+async def download_invoice_by_period(page: Page, period: InvoicePeriod, download_dir: Path, logger: logging.Logger) -> Path:
+    row = page.locator(f"table#datatable tbody tr:has-text('{period}')").first
+    link_cell = row.locator("td").first
+
+    async with page.context.expect_page() as new_page_info:
+        await link_cell.click()
+    new_page: Page = await new_page_info.value
+    await new_page.wait_for_load_state()
+
+    blob_url = new_page.url
+    pdf_content = await Utils.download_pdf_from_blob_url(new_page, blob_url)
+
+    save_path = download_dir / f"{period}.pdf"
+    save_path.write_bytes(pdf_content)
+
+    logger.info(f"Downloaded {period.name} to {save_path}")
+    await new_page.close()
+
+    return save_path
+
+
+async def test_arnona(
+    page: Page,
+    logger: logging.Logger,
+    google_secrets_client: GoogleSecretsClient,
+) -> None:
+    password = Utils.get_secret_from_google_secrets_client(google_secrets_client, "ARNONA_PASSWORD")
+
+    user_id = Utils.get_mandatory_env("DEFAULT_ID")
+
+    url = "https://city4u.co.il/PortalServicesSite/city4u/279000/waterDocuments"
+    await page.goto(url)
+    await page.get_by_role("button", name="כניסה לחשבון").click()
+    await page.locator("#UserName").click()
+    await page.locator("#UserName").fill(user_id)
+    await page.locator("#Password").click()
+    await page.locator("#Password").fill(password)
+    await page.get_by_role("button", name="כניסה לחשבון").click()
+    await page.wait_for_selector("div#breadcrumbs")
+    await page.goto(url)
+    await page.wait_for_selector("table#datatable")
+
+    download_dir = Path(f"downloads/{YEAR}/{PLATFORM}")
+    download_dir.mkdir(parents=True, exist_ok=True)
+
+    for period in PERIODS_TO_DOWNLOAD:
+        await download_invoice_by_period(page, period, download_dir, logger)
+
+    logger.info(f"All downloads completed in {download_dir}")
+</file>
+
+<file path="src/scanners/partner_scanner_test.py">
+import logging
+from enum import StrEnum
+from pathlib import Path
+
+import pytest
+
+from playwright.async_api import Page
+from src.scanner_config import YEAR, Platform, get_periods_to_download
+from src.utils import Utils
+
+
+class InvoicePeriod(StrEnum):
+    PERIOD_1 = f"ינואר {YEAR}"  # January
+    PERIOD_2 = f"פברואר {YEAR}"  # February
+    PERIOD_3 = f"מרץ {YEAR}"  # March
+    PERIOD_4 = f"אפריל {YEAR}"  # April
+    PERIOD_5 = f"מאי {YEAR}"  # May
+    PERIOD_6 = f"יוני {YEAR}"  # June
+    PERIOD_7 = f"יולי {YEAR}"  # July
+    PERIOD_8 = f"אוגוסט {YEAR}"  # August
+    PERIOD_9 = f"ספטמבר {YEAR}"  # September
+    PERIOD_10 = f"אוקטובר {YEAR}"  # October
+    PERIOD_11 = f"נובמבר {YEAR}"  # November
+    PERIOD_12 = f"דצמבר {YEAR}"  # December
+
+
+PLATFORM = Platform.PARTNER
+PERIODS_TO_DOWNLOAD = [InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)]
+
+
+async def download_invoice_by_period(page: Page, period: InvoicePeriod, download_dir: Path, logger: logging.Logger) -> Path:
+    link = page.locator('[role="group"]').filter(has_text=period).first
+    await link.click()
+
+    async with page.context.expect_page() as new_page_info:
+        await page.get_by_role("button", name="לחשבונית חתומה דיגיטלית").click()
+    new_page: Page = await new_page_info.value
+    await new_page.wait_for_load_state()
+
+    pdf_content = await Utils.blob_download_with_timeout(page, new_page)
+
+    save_path = download_dir / f"{PLATFORM}_{period}.pdf".replace(" ", "_")
+    save_path.write_bytes(pdf_content)
+
+    logger.info(f"Downloaded {period.name} to {save_path}")
+    await new_page.close()
+
+    return save_path
+
+
+@pytest.mark.manual
+async def test_partner_manual_login(
+    page: Page,
+    logger: logging.Logger,
+):
+    user_id = Utils.get_mandatory_env("DEFAULT_ID")
+    phone_num = Utils.get_mandatory_env("DEFAULT_PHONE_NUMBER")
+
+    url = "https://www.partner.co.il/n/mypartner/invoice"
+    await page.goto(url)
+    await page.get_by_role("textbox", name="אפשר גם ח.פ.").fill(user_id)
+    await page.wait_for_timeout(500)
+    await page.get_by_role("button", name="המשך").click()
+    await page.get_by_role("textbox", name="מספר הנייד הוא").fill(phone_num)
+    await page.wait_for_timeout(500)
+    await page.get_by_role("button", name="המשך").click()
+    await page.pause()
+    try:
+        await page.get_by_role("button", name="המשך").click()
+    # pylint: disable=broad-exception-caught
+    except Exception:
+        pass
+    await page.wait_for_url(url)
+
+    await Utils.record_state(page=page, platform=PLATFORM, logger=logger)
+
+
+@pytest.mark.using_state(PLATFORM)
+async def test_partner(
+    page: Page,
+    logger: logging.Logger,
+):
+    url = "https://www.partner.co.il/n/mypartner/invoice"
+    await page.goto(url)
+    await Utils.wait_for_authenticated_selector(page=page, selector="text=אפשר גם ח.פ.", should_exist=False, platform=PLATFORM)
+    await page.get_by_role("button", name="לא, תודה").click()
+
+    download_dir = Path(f"downloads/{YEAR}/{PLATFORM}")
+    download_dir.mkdir(parents=True, exist_ok=True)
+
+    for period in PERIODS_TO_DOWNLOAD:
+        await download_invoice_by_period(page=page, period=period, download_dir=download_dir, logger=logger)
+
+    logger.info(f"All downloads completed in {download_dir}")
+</file>
+
+<file path="src/utils.py">
+import asyncio
+import base64
+import json
+import logging
+import os
+from pathlib import Path
+
+import pyotp
+
+from google_secrets_client import GoogleSecretsClient
+from playwright.async_api import BrowserContext, Locator, Page
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+
+
+class RulesNotFoundError(Exception):
+    """Exception raised when the url provided does not match any rules.
+
+    Attributes:
+        url -- the url that didn't match any rules
+    """
+
+    def __init__(self, url: str):
+        self.url = url
+        super().__init__(f"No rules found for URL: {self.url}")
+
+
+class CookieExpiredError(Exception):
+    """Exception raised when the loaded cookies are expired.
+
+    Attributes:
+        domain - the site for which the cookies expired.
+    """
+
+    def __init__(self, domain: str):
+        self.domain = domain
+        super().__init__(f"Authentication cookies expired for: {self.domain}")
+
+
+class Utils:
+    @staticmethod
+    def cover_footprints(context: BrowserContext):
+        context.add_init_script(FINGERPRINT_SHIM)
+
+    @staticmethod
+    def get_mandatory_env(key: str) -> str:
+        value = os.getenv(key)
+
+        if not value:
+            raise OSError(f"{key} env var is missing")
+
+        return value
+
+    @staticmethod
+    def get_secret_from_google_secrets_client(
+        google_secrets_client: GoogleSecretsClient,
+        secret_name: str,
+        version: str = "latest",
+    ) -> str:
+        return google_secrets_client.get_secret(secret_name, version)
+
+    @staticmethod
+    async def record_state(
+        page: Page,
+        platform: str,
+        logger: logging.Logger,
+        include_session_storage: bool = False,
+    ):
+        path = "playwright/.auth"
+        full_path = os.path.join(path, f"{platform}.json")
+
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        # Save standard storage state (cookies + localStorage)
+        await page.context.storage_state(path=full_path)
+
+        # Optionally save sessionStorage if requested
+        if include_session_storage:
+            await Utils._append_session_storage_to_state(page, full_path, logger)
+
+        logger.info(f"Successfully saved state for {platform}, path: {full_path}")
+
+    @staticmethod
+    async def _append_session_storage_to_state(page: Page, state_file_path: str, logger: logging.Logger):
+        """
+        Private helper method to capture sessionStorage and append it to an existing state file.
+        """
+        # Capture sessionStorage from the page
+        session_storage = await page.evaluate(
+            """() => {
+            const items = {};
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i);
+                items[key] = sessionStorage.getItem(key);
+            }
+            return items;
+        }"""
+        )
+
+        if not session_storage:
+            logger.warning("No sessionStorage found to save")
+            return
+
+        # Load the existing state file
+        with open(state_file_path, "r", encoding="utf-8") as file:
+            state = json.load(file)
+
+        # Add sessionStorage to the appropriate origin
+        origin = page.url.split("/")[0] + "//" + page.url.split("/")[2]
+        origin_found = False
+
+        for origin_data in state.get("origins", []):
+            if origin_data["origin"] == origin:
+                origin_data["sessionStorage"] = [{"name": k, "value": v} for k, v in session_storage.items()]
+                origin_found = True
+                break
+
+        if not origin_found:
+            state.setdefault("origins", []).append(
+                {
+                    "origin": origin,
+                    "sessionStorage": [{"name": k, "value": v} for k, v in session_storage.items()],
+                }
+            )
+
+        # Save back with sessionStorage included
+        with open(state_file_path, "w", encoding="utf-8") as file:
+            json.dump(state, file, indent=2)
+
+        logger.info("Successfully appended sessionStorage to state file")
+
+    @staticmethod
+    def get_totp(secret: str) -> str:
+        totp = pyotp.TOTP(secret)
+        return totp.now()
+
+    @staticmethod
+    async def wait_for_authenticated_page(page: Page, url: str, platform: str, timeout=5000):
+        try:
+            await page.wait_for_url(url, timeout=timeout)
+        except PlaywrightTimeoutError as exc:
+            raise CookieExpiredError(platform) from exc
+
+    @staticmethod
+    async def wait_for_authenticated_selector(page: Page, selector: str, should_exist: bool, platform: str, timeout=5000):
+        try:
+            await page.wait_for_selector(selector, timeout=timeout)
+            if not should_exist:
+                raise CookieExpiredError(platform)
+        except PlaywrightTimeoutError as exc:
+            if not should_exist:
+                return
+            raise CookieExpiredError(platform) from exc
+
+    @staticmethod
+    async def wait_for_selector(page: Page, selector: str, timeout=3000) -> Locator | None:
+        try:
+            await page.wait_for_selector(selector, timeout=timeout)
+            locator = page.locator(selector)
+            if await locator.count() > 0:
+                return locator
+            return None
+        except PlaywrightTimeoutError:
+            return None
+
+    @staticmethod
+    async def click_selector_if_exists(page: Page, selector: str, timeout: int = 3000):
+        locator = await Utils.wait_for_selector(page, selector, timeout)
+        if locator:
+            await locator.click()
+
+    @staticmethod
+    async def wait_for_locator(locator: Locator, timeout: int = 3000) -> Locator | None:
+        try:
+            await locator.wait_for(timeout=timeout)
+            if await locator.count() > 0:
+                return locator
+            return None
+        except PlaywrightTimeoutError:
+            return None
+
+    @staticmethod
+    async def download_pdf_from_blob_url(page: Page, blob_url: str) -> bytes:
+        pdf_base64 = await page.evaluate(
+            """async (blobUrl) => {
+            const response = await fetch(blobUrl);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            return new Promise((resolve) => {
+                reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                reader.readAsDataURL(blob);
+            });
+        }""",
+            blob_url,
+        )
+
+        return base64.b64decode(pdf_base64)
+
+    @staticmethod
+    async def direct_download(
+        new_page: Page,
+        download_dir: Path,
+        timeout: int = 5000,
+    ) -> bytes:
+        async with new_page.expect_download(timeout=timeout) as download_info:
+            pass  # Download triggers automatically from page load
+        download = await download_info.value
+
+        temp_path = download_dir / "temp_invoice.pdf"
+        await download.save_as(temp_path)
+        pdf_content = temp_path.read_bytes()
+        temp_path.unlink()
+
+        return pdf_content
+
+    @staticmethod
+    async def blob_download_with_timeout(page: Page, new_page: Page, timeout: int = 10000) -> bytes:
+        # Wait for the page to load the blob URL
+        start_wait = asyncio.get_event_loop().time()
+        while not new_page.url.startswith("blob:"):
+            if (asyncio.get_event_loop().time() - start_wait) * 1000 > timeout:
+                raise TimeoutError("Timeout waiting for blob URL to load")
+            await new_page.reload()
+            await asyncio.sleep(1)
+
+        # Download from blob URL using the original page context
+        blob_url = new_page.url
+        return await Utils.download_pdf_from_blob_url(page, blob_url)
+
+
+FINGERPRINT_SHIM = r"""
+(() => {
+  // --- helpers ---
+  const defineGetter = (obj, prop, value) => {
+    try {
+      Object.defineProperty(obj, prop, { get: () => value, configurable: true });
+    } catch {}
+  };
+
+  // --- Navigator: language(s), platform, webdriver, concurrency ---
+  defineGetter(Navigator.prototype, "hardwareConcurrency", 8);
+  defineGetter(Navigator.prototype, "language", "en-GB");
+  defineGetter(Navigator.prototype, "languages", ["en-GB", "en"]);
+  defineGetter(Navigator.prototype, "platform", "MacIntel");
+  defineGetter(Navigator.prototype, "webdriver", undefined);
+
+  // --- Permissions: avoid Illegal return + keep shape predictable ---
+  if (navigator.permissions && navigator.permissions.query) {
+    const originalQuery = navigator.permissions.query.bind(navigator.permissions);
+    navigator.permissions.query = (parameters) => {
+      try {
+        if (parameters && parameters.name === "notifications") {
+          // PermissionStatus-like object
+          return Promise.resolve({
+            state: Notification.permission,
+            onchange: null,
+          });
+        }
+      } catch {}
+      return originalQuery(parameters);
+    };
+  }
+
+  // --- Canvas: deterministic, lightweight perturbation ---
+  // NOTE: This is for reproducible testing. It intentionally avoids heavy per-pixel loops.
+  const seed = 1337; // make this configurable per test run if you want
+  let s = seed >>> 0;
+  const rand = () => (s = (s * 1664525 + 1013904223) >>> 0) / 2**32;
+
+  const patchCanvasExport = (name) => {
+    const orig = HTMLCanvasElement.prototype[name];
+    if (!orig) return;
+
+    Object.defineProperty(HTMLCanvasElement.prototype, name, {
+      value: function(...args) {
+        try {
+          const ctx = this.getContext("2d");
+          if (ctx) {
+            // tiny, deterministic 1px shift in a corner (minimal impact, low cost)
+            const w = this.width | 0, h = this.height | 0;
+            if (w > 0 && h > 0) {
+              const x = (rand() * Math.min(8, w)) | 0;
+              const y = (rand() * Math.min(8, h)) | 0;
+              const img = ctx.getImageData(x, y, 1, 1);
+              // slight clamped change
+              img.data[0] = (img.data[0] + 1) & 255;
+              ctx.putImageData(img, x, y);
+            }
+          }
+        } catch {
+          // ignore tainted canvas / security errors
+        }
+        return orig.apply(this, args);
+      },
+      configurable: true
+    });
+  };
+
+  patchCanvasExport("toDataURL");
+  patchCanvasExport("toBlob");
+
+  // --- WebGL: patch safely (WebGL1 + WebGL2) ---
+  const patchWebGL = (proto) => {
+    if (!proto || !proto.getParameter) return;
+    const origGetParameter = proto.getParameter;
+
+    Object.defineProperty(proto, "getParameter", {
+      value: function(parameter) {
+        // 37445/37446 are often used, but many scripts use WEBGL_debug_renderer_info constants.
+        // We only override known IDs and otherwise call through.
+        if (parameter === 37445) return "ANGLE (Intel, Intel(R) Iris(TM) Graphics, OpenGL 4.1)";
+        if (parameter === 37446) return "Google Inc.";
+        return origGetParameter.call(this, parameter);
+      },
+      configurable: true
+    });
+
+    const origGetExtension = proto.getExtension;
+    if (origGetExtension) {
+      Object.defineProperty(proto, "getExtension", {
+        value: function(name) {
+          const ext = origGetExtension.call(this, name);
+          if (name === "WEBGL_debug_renderer_info" && ext) {
+            // keep ext but ensure constants exist
+            return ext;
+          }
+          return ext;
+        },
+        configurable: true
+      });
+    }
+  };
+
+  patchWebGL(WebGLRenderingContext && WebGLRenderingContext.prototype);
+  patchWebGL(window.WebGL2RenderingContext && WebGL2RenderingContext.prototype);
+})();
+"""
+</file>
+
+<file path="src/scanner_config.py">
+from enum import StrEnum
+
+# Global year - update once per year
+YEAR = 2025
+
+
+class Platform(StrEnum):
+    PARTNER = "partner"
+    MEITAV = "meitav"
+    ARNONA = "arnona"
+    AMISRAGAS = "amisragas"
+    GOOGLE_WORKSPACE = "google_workspace"
+    CHATGPT = "chatgpt"
+    CLAUDECODE = "claudecode"
+
+
+# Periods are inclusive: (4, 6) downloads PERIOD_4, PERIOD_5, PERIOD_6
+PERIODS_CONFIG = {
+    ##### Bi-monthly scanners (6 periods per year) #####
+    # Current period is downloadable only at the 1st month of the current bimonthly period (e.g., Jan-Feb at Jan 1st)
+    Platform.ARNONA: (4, 6),
+    # A period is downloadable only at the 1st day of the next bimonthly period (e.g., 15th Jan- 15th Mar at Apr 1st)
+    # Period 1 = 15th of Nov - 15th of Jan ; Period 6 = 15th of Sep - 15th of Nov
+    Platform.MEITAV: (4, 6),
+    ##### Monthly scanners (12 periods per year) #####
+    # Can only download the last 6 months
+    # Current month is downloadable only at the 14th of the current month (e.g., Oct at Oct 14th)
+    Platform.PARTNER: (4, 11),
+    # Current month is downloadable only at the 2nd of the next month (e.g., Oct at Nov 2nd)
+    Platform.GOOGLE_WORKSPACE: (8, 11),
+    # Current month is downloadable only at the 18th of the current month (e.g., Oct at Oct 18th)
+    # Token expires every 90 days (To be sure today is 13th of Dec, check if 14th of Mar we don't have access)
+    # Note to myself: Next invoice will be at Feb 18th, 2026 for Feb only, delete after this date
+    Platform.CHATGPT: (8, 11),
+    # Current month is downloadable only at the 12th of the current month (e.g., Oct at Oct 12th)
+    Platform.CLAUDECODE: (8, 12),
+    # Current month is downloadable only at the 18th of the next month (e.g., Oct at Nov 18th)
+    Platform.AMISRAGAS: (7, 10),
+}
+
+
+def get_periods_to_download(platform: str) -> list[str]:
+    if platform not in PERIODS_CONFIG:
+        raise KeyError(f"Platform '{platform}' not found in PERIODS_CONFIG. Available platforms: {list(PERIODS_CONFIG.keys())}")
+
+    start_period, end_period = PERIODS_CONFIG[platform]
+    return [f"PERIOD_{i}" for i in range(start_period, end_period + 1)]
+</file>
+
+<file path="src/scanners/water_scanner_test.py">
+import asyncio
+import logging
+from enum import StrEnum
+from pathlib import Path
+
+import pytest
+
+from google_secrets_client import GoogleSecretsClient
+from playwright.async_api import Page
+from src.scanner_config import YEAR, Platform, get_periods_to_download
+from src.utils import Utils
+
+
+class InvoicePeriod(StrEnum):
+    PERIOD_1 = f"1-{YEAR}"  # Jan-Feb
+    PERIOD_2 = f"2-{YEAR}"  # Mar-Apr
+    PERIOD_3 = f"3-{YEAR}"  # May-Jun
+    PERIOD_4 = f"4-{YEAR}"  # Jul-Aug
+    PERIOD_5 = f"5-{YEAR}"  # Sep-Oct
+    PERIOD_6 = f"6-{YEAR}"  # Nov-Dec
+
+
+PLATFORM = Platform.MEITAV
+PERIODS_TO_DOWNLOAD = [InvoicePeriod[period_name] for period_name in get_periods_to_download(PLATFORM)]
+
+
+async def download_invoice_by_period(
+    page: Page,
+    period: InvoicePeriod,
+    download_dir: Path,
+    logger: logging.Logger,
+) -> Path:
+    row = page.locator(f"tr:has-text('{period}')").first
+    link = row.locator("a").filter(has_text="חשבונית").first
+
+    async with page.context.expect_page() as new_page_info:
+        await link.click()
+    new_page = await new_page_info.value
+
+    # Race both download methods concurrently
+    direct_task = asyncio.create_task(Utils.direct_download(new_page, download_dir))
+    blob_task = asyncio.create_task(Utils.blob_download_with_timeout(page, new_page))
+
+    # Wait for the first one to succeed
+    done, pending = await asyncio.wait([direct_task, blob_task], return_when=asyncio.FIRST_COMPLETED)
+
+    # Cancel the other task
+    for task in pending:
+        task.cancel()
+
+    # Get the result from the completed task
+    pdf_content = None
+    for task in done:
+        pdf_content = task.result()
+
+    await new_page.close()
+
+    if pdf_content is None:
+        raise ValueError(f"Failed to download invoice for period {period.name}")
+
+    save_path = download_dir / f"water_{period}.pdf"
+    save_path.write_bytes(pdf_content)
+
+    logger.info(f"Downloaded {period.name} to {save_path}")
+
+    return save_path
+
+
+@pytest.mark.manual
+async def test_meitav_manual_login(
+    page: Page,
+    logger: logging.Logger,
+    google_secrets_client: GoogleSecretsClient,
+):
+    password = Utils.get_secret_from_google_secrets_client(google_secrets_client, "MEITAV_PASSWORD")
+
+    user_id = Utils.get_mandatory_env("JESS_ID")
+
+    url = "https://www.my-meitav.co.il/appartments"
+    await page.goto(url)
+    await page.get_by_role("button", name="כניסה באמצעות סיסמה").click()
+    await page.locator("#pasportNumber").fill(user_id)
+    await page.locator("#password").fill(password)
+    await page.pause()
+    try:
+        await page.get_by_role("button", name="כניסה").click()
+    # pylint: disable=broad-exception-caught
+    except Exception:
+        pass
+    await page.wait_for_url(url)
+
+    await Utils.record_state(page=page, platform=PLATFORM, logger=logger, include_session_storage=True)
+
+
+@pytest.mark.using_state(PLATFORM)
+async def test_meitav(
+    page: Page,
+    logger: logging.Logger,
+):
+    url = "https://www.my-meitav.co.il/appartments"
+    await page.goto(url)
+    await Utils.wait_for_authenticated_page(page=page, url=url, platform=PLATFORM)
+    await page.locator("#allInfo").click()
+
+    download_dir = Path(f"downloads/{YEAR}/{PLATFORM}")
+    download_dir.mkdir(parents=True, exist_ok=True)
+
+    for period in PERIODS_TO_DOWNLOAD:
+        await download_invoice_by_period(page=page, period=period, download_dir=download_dir, logger=logger)
+
+    logger.info(f"All downloads completed in {download_dir}")
+</file>
+
+</files>

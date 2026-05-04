@@ -3,7 +3,7 @@
     "python.terminal.activateEnvironment": true,
     "editor.formatOnSave": true,
     "python.testing.pytestArgs": [
-        "src"
+        "tests"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
@@ -13,5 +13,6 @@
             "source.fixAll": "explicit",
             "source.organizeImports": "explicit"
         }
-    }
+    },
+    "python-envs.defaultEnvManager": "ms-python.python:venv"
 }

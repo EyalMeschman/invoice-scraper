@@ -3,18 +3,17 @@ import logging
 import os
 
 import pytest
-from dotenv import load_dotenv
+from playwright.async_api import Browser, async_playwright
 from pytest import FixtureRequest, Item
 
-from google_secrets_client import GoogleSecretsClient
-from logger import Logger
-from playwright.async_api import Browser, async_playwright
-from src.utils import Utils
+from invoice_scraper.config import load_config
+from invoice_scraper.logger import Logger
+from invoice_scraper.secrets_client import GoogleSecretsClient
+from invoice_scraper.utils import Utils
 
 PLATFORM_PATH = 0
 
-load_dotenv(".env.defaults")
-load_dotenv(".env", override=True)
+load_config()
 
 
 @pytest.fixture(name="logger", scope="session")
@@ -44,9 +43,8 @@ async def browser():
 
 @pytest.fixture
 async def page(browser: Browser, logger: logging.Logger, request: FixtureRequest):
-    # Check if test has using_state marker
-    item: Item = request.node
-    marker = item.get_closest_marker("using_state")
+    node: Item = request.node
+    marker = node.get_closest_marker("using_state")
     storage_state = None
     session_storage_data = None
 
@@ -60,16 +58,25 @@ async def page(browser: Browser, logger: logging.Logger, request: FixtureRequest
         storage_state = state_path
         logger.info(f"Loading state from {state_path}")
 
-        # Load sessionStorage if present in the state file
         with open(state_path, "r", encoding="utf-8") as f:
             state_data = json.load(f)
             for origin_data in state_data.get("origins", []):
-                if "sessionStorage" in origin_data:
+                if "sessionStorage" in origin_data or "localStorage" in origin_data:
+                    origin = origin_data["origin"]
+                    local_storage = origin_data.get("localStorage", [])
+                    session_storage = origin_data.get("sessionStorage", [])
+
                     session_storage_data = {
-                        "origin": origin_data["origin"],
-                        "items": origin_data["sessionStorage"],
+                        "origin": origin,
+                        "localStorage": local_storage,
+                        "sessionStorage": session_storage,
                     }
-                    logger.info(f"Found sessionStorage for {origin_data['origin']} with {len(origin_data['sessionStorage'])} items")
+                    logger.info(
+                        "Found storage for %s with %d localStorage + %d sessionStorage items",
+                        origin,
+                        len(local_storage),
+                        len(session_storage),
+                    )
                     break
 
     context = await browser.new_context(
@@ -79,19 +86,31 @@ async def page(browser: Browser, logger: logging.Logger, request: FixtureRequest
     )
     Utils.cover_footprints(context)
 
+    if session_storage_data:
+        script_lines = []
+
+        script_lines.append("try {")
+        for entry in session_storage_data["localStorage"]:
+            name = json.dumps(entry["name"])
+            value = json.dumps(entry["value"])
+            script_lines.append(f"  localStorage.setItem({name}, {value});")
+
+        for entry in session_storage_data["sessionStorage"]:
+            name = json.dumps(entry["name"])
+            value = json.dumps(entry["value"])
+            script_lines.append(f"  sessionStorage.setItem({name}, {value});")
+
+        script_lines.append("} catch(e) { console.error('Storage injection failed:', e); }")
+        init_script = "\n".join(script_lines)
+        await context.add_init_script(init_script)
+        logger.info(
+            "Injected init script for %d localStorage + %d sessionStorage items",
+            len(session_storage_data["localStorage"]),
+            len(session_storage_data["sessionStorage"]),
+        )
+
     page = await context.new_page()
     page.on("console", lambda msg: logger.debug(msg.text))
-
-    # Inject sessionStorage if we loaded it
-    if session_storage_data:
-        await page.goto(session_storage_data["origin"])
-        for item in session_storage_data["items"]:
-            # Use parameterized evaluation to prevent JavaScript injection
-            await page.evaluate(
-                "(data) => sessionStorage.setItem(data.name, data.value)",
-                {"name": item["name"], "value": item["value"]},
-            )
-        logger.info(f"Injected {len(session_storage_data['items'])} sessionStorage items")
 
     yield page
 

@@ -1,10 +1,12 @@
 import logging
 
+_APP_LOGGER_NAME = "invoice_scraper"
+
 
 class Logger:
     @staticmethod
     def create() -> logging.Logger:
-        log = logging.getLogger(__name__)
+        log = logging.getLogger(_APP_LOGGER_NAME)
         if not log.hasHandlers():
             formatter = logging.Formatter(
                 "[%(asctime)s] p%(process)s {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s",
